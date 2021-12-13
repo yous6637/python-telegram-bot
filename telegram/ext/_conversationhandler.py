@@ -18,7 +18,7 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 # pylint: disable=no-self-use
 """This module contains the ConversationHandler."""
-
+import asyncio
 import logging
 import functools
 import datetime
@@ -50,13 +50,12 @@ from telegram.ext import (
     TypeHandler,
 )
 from telegram._utils.warnings import warn
-from telegram.ext._utils.promise import Promise
 from telegram.ext._utils.types import ConversationDict
 from telegram.ext._utils.types import CCT
 
 if TYPE_CHECKING:
     from telegram.ext import Dispatcher, Job, JobQueue
-CheckUpdateType = Optional[Tuple[Tuple[int, ...], Handler, object]]
+CheckUpdateType = Tuple[object, Tuple[int, ...], Handler, object]
 
 
 class _ConversationTimeoutContext:
@@ -216,7 +215,7 @@ class ConversationHandler(Handler[Update, CCT]):
         '_timeout_jobs_lock',
         '_conversations',
         '_conversations_lock',
-        'logger',
+        '_logger',
     )
 
     END: ClassVar[int] = -1
@@ -275,7 +274,7 @@ class ConversationHandler(Handler[Update, CCT]):
         self._conversations: ConversationDict = {}
         self._conversations_lock = Lock()
 
-        self.logger = logging.getLogger(__name__)
+        self._logger = logging.getLogger(__name__)
 
         if not any((self.per_user, self.per_chat, self.per_message)):
             raise ValueError("'per_user', 'per_chat' and 'per_message' can't all be 'False'")
@@ -528,28 +527,33 @@ class ConversationHandler(Handler[Update, CCT]):
 
         return tuple(key)
 
-    def _resolve_promise(self, state: Tuple) -> object:
+    def _resolve_task(self, state: Tuple[object, asyncio.Task]) -> object:
         old_state, new_state = state
-        try:
-            res = new_state.result(0)
-            res = res if res is not None else old_state
-        except Exception as exc:
-            self.logger.exception("Promise function raised exception")
-            self.logger.exception("%s", exc)
+        res = new_state.result()
+        res = res if res is not None else old_state
+
+        exc = new_state.exception()
+        if exc:
+            self._logger.exception("Task function raised exception")
+            self._logger.exception("%s", exc)
             res = old_state
-        finally:
-            if res is None and old_state is None:
-                res = self.END
+
+        if res is None and old_state is None:
+            res = self.END
+
         return res
 
     def _schedule_job(
         self,
-        new_state: object,
+        new_state: Union[object, asyncio.Task],
         dispatcher: 'Dispatcher[Any, CCT, Any, Any, Any, JobQueue, Any]',
         update: Update,
         context: CallbackContext,
         conversation_key: Tuple[int, ...],
     ) -> None:
+        if isinstance(new_state, asyncio.Task):
+            new_state = new_state.result()
+
         if new_state != self.END:
             try:
                 # both job_queue & conversation_timeout are checked before calling _schedule_job
@@ -562,13 +566,13 @@ class ConversationHandler(Handler[Update, CCT]):
                     ),
                 )
             except Exception as exc:
-                self.logger.exception(
+                self._logger.exception(
                     "Failed to schedule timeout job due to the following exception:"
                 )
-                self.logger.exception("%s", exc)
+                self._logger.exception("%s", exc)
 
     # pylint: disable=too-many-return-statements
-    def check_update(self, update: object) -> CheckUpdateType:
+    def check_update(self, update: object) -> Optional[CheckUpdateType]:
         """
         Determines whether an update should be handled by this conversationhandler, and if so in
         which state the conversation currently is.
@@ -597,12 +601,12 @@ class ConversationHandler(Handler[Update, CCT]):
             state = self.conversations.get(key)
 
         # Resolve promises
-        if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], Promise):
-            self.logger.debug('waiting for promise...')
+        if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], asyncio.Task):
+            self._logger.warning('Waiting for asyncio Task to finish ...')
 
             # check if promise is finished or not
-            if state[1].done.wait(0):
-                res = self._resolve_promise(state)
+            if state[1].done():
+                res = self._resolve_task(state)  # type: ignore[arg-type]
                 self._update_state(res, key)
                 with self._conversations_lock:
                     state = self.conversations.get(key)
@@ -613,10 +617,10 @@ class ConversationHandler(Handler[Update, CCT]):
                 for hdlr in hdlrs:
                     check = hdlr.check_update(update)
                     if check is not None and check is not False:
-                        return key, hdlr, check
+                        return self.WAITING, key, hdlr, check
                 return None
 
-        self.logger.debug('selecting conversation %s with state %s', str(key), str(state))
+        self._logger.debug('Selecting conversation %s with state %s', str(key), str(state))
 
         handler = None
 
@@ -653,9 +657,9 @@ class ConversationHandler(Handler[Update, CCT]):
                 else:
                     return None
 
-        return key, handler, check  # type: ignore[return-value]
+        return state, key, handler, check  # type: ignore[return-value]
 
-    def handle_update(  # type: ignore[override]
+    async def handle_update(  # type: ignore[override]
         self,
         update: Update,
         dispatcher: 'Dispatcher',
@@ -665,15 +669,15 @@ class ConversationHandler(Handler[Update, CCT]):
         """Send the update to the callback for the current state and Handler
 
         Args:
-            check_result: The result from check_update. For this handler it's a tuple of key,
-                handler, and the handler's check result.
+            check_result: The result from check_update. For this handler it's a tuple of the
+                conversation state, key, handler, and the handler's check result.
             update (:class:`telegram.Update`): Incoming telegram update.
             dispatcher (:class:`telegram.ext.Dispatcher`): Dispatcher that originated the Update.
             context (:class:`telegram.ext.CallbackContext`): The context as provided by
                 the dispatcher.
 
         """
-        conversation_key, handler, check_result = check_result  # type: ignore[assignment,misc]
+        current_state, conversation_key, handler, handler_check_result = check_result
         raise_dp_handler_stop = False
 
         with self._timeout_jobs_lock:
@@ -683,15 +687,17 @@ class ConversationHandler(Handler[Update, CCT]):
             if timeout_job is not None:
                 timeout_job.schedule_removal()
         try:
-            new_state = handler.handle_update(update, dispatcher, check_result, context)
+            new_state = await handler.handle_update(
+                update, dispatcher, handler_check_result, context
+            )
         except DispatcherHandlerStop as exception:
-            new_state = exception.state
+            new_state = exception.state  # type: ignore[assignment]
             raise_dp_handler_stop = True
         with self._timeout_jobs_lock:
             if self.conversation_timeout:
                 if dispatcher.job_queue is not None:
                     # Add the new timeout job
-                    if isinstance(new_state, Promise):
+                    if isinstance(new_state, asyncio.Task):
                         new_state.add_done_callback(
                             functools.partial(
                                 self._schedule_job,
@@ -716,7 +722,9 @@ class ConversationHandler(Handler[Update, CCT]):
                 raise DispatcherHandlerStop(self.map_to_parent.get(new_state))
             return self.map_to_parent.get(new_state)
 
-        self._update_state(new_state, conversation_key)
+        if current_state != self.WAITING:
+            self._update_state(new_state, conversation_key)
+
         if raise_dp_handler_stop:
             # Don't pass the new state here. If we're in a nested conversation, the parent is
             # expecting None as return value.
@@ -732,7 +740,7 @@ class ConversationHandler(Handler[Update, CCT]):
                     if self.persistent and self.persistence and self.name:
                         self.persistence.update_conversation(self.name, key, None)
 
-        elif isinstance(new_state, Promise):
+        elif isinstance(new_state, asyncio.Task):
             with self._conversations_lock:
                 self.conversations[key] = (self.conversations.get(key), new_state)
                 if self.persistent and self.persistence and self.name:
@@ -751,16 +759,18 @@ class ConversationHandler(Handler[Update, CCT]):
                 if self.persistent and self.persistence and self.name:
                     self.persistence.update_conversation(self.name, key, new_state)
 
-    def _trigger_timeout(self, context: CallbackContext) -> None:
-        self.logger.debug('conversation timeout was triggered!')
-
+    async def _trigger_timeout(self, context: CallbackContext) -> None:
         job = cast('Job', context.job)
         ctxt = cast(_ConversationTimeoutContext, job.context)
+
+        self._logger.debug(
+            'Conversation timeout was triggered for conversation %s!', ctxt.conversation_key
+        )
 
         callback_context = ctxt.callback_context
 
         with self._timeout_jobs_lock:
-            found_job = self.timeout_jobs[ctxt.conversation_key]
+            found_job = self.timeout_jobs.get(ctxt.conversation_key)
             if found_job is not job:
                 # The timeout has been cancelled in handle_update
                 return
@@ -771,7 +781,9 @@ class ConversationHandler(Handler[Update, CCT]):
             check = handler.check_update(ctxt.update)
             if check is not None and check is not False:
                 try:
-                    handler.handle_update(ctxt.update, ctxt.dispatcher, check, callback_context)
+                    await handler.handle_update(
+                        ctxt.update, ctxt.dispatcher, check, callback_context
+                    )
                 except DispatcherHandlerStop:
                     warn(
                         'DispatcherHandlerStop in TIMEOUT state of '

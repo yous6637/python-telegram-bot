@@ -18,15 +18,16 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the base class for handlers as used by the Dispatcher."""
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, Generic
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, Generic
 
+from telegram._utils.asyncio import run_non_blocking
 from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
-from telegram.ext._utils.promise import Promise
-from telegram.ext._utils.types import CCT
+from telegram.ext._utils.types import CCT, HandlerCallback
 from telegram.ext._extbot import ExtBot
 
 if TYPE_CHECKING:
     from telegram.ext import Dispatcher
+    import asyncio
 
 RT = TypeVar('RT')
 UT = TypeVar('UT')
@@ -62,7 +63,7 @@ class Handler(Generic[UT, CCT], ABC):
 
     def __init__(
         self,
-        callback: Callable[[UT, CCT], RT],
+        callback: HandlerCallback[UT, CCT, RT],
         run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
     ):
         self.callback = callback
@@ -88,13 +89,13 @@ class Handler(Generic[UT, CCT], ABC):
 
         """
 
-    def handle_update(
+    async def handle_update(
         self,
         update: UT,
         dispatcher: 'Dispatcher',
         check_result: object,
         context: CCT,
-    ) -> Union[RT, Promise]:
+    ) -> Union[RT, 'asyncio.Task[Optional[RT]]']:
         """
         This method is called if it was determined that an update should indeed
         be handled by this instance. Calls :attr:`callback` along with its respectful
@@ -121,8 +122,12 @@ class Handler(Generic[UT, CCT], ABC):
 
         self.collect_additional_context(context, update, dispatcher, check_result)
         if run_async:
-            return dispatcher.run_async(self.callback, update, context, update=update)
-        return self.callback(update, context)
+            return await dispatcher.run_async(self.callback, args=(update, context), update=update)
+
+        return await run_non_blocking(
+            func=self.callback,
+            args=(update, context),
+        )
 
     def collect_additional_context(
         self,
