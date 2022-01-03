@@ -120,15 +120,18 @@ class BadRequest(NetworkError):
 
 
 class TimedOut(NetworkError):
-    """Raised when a request took too long to finish."""
+    """Raised when a request took too long to finish.
+
+    Args:
+        message (:obj:`str`, optional): Any additional information about the exception.
+
+            .. versionadded:: 14.0
+    """
 
     __slots__ = ()
 
-    def __init__(self) -> None:
-        super().__init__('Timed out')
-
-    def __reduce__(self) -> Tuple[type, Tuple]:  # type: ignore[override]
-        return self.__class__, ()
+    def __init__(self, message: str = None) -> None:
+        super().__init__(message or 'Timed out')
 
 
 class ChatMigrated(TelegramError):

@@ -67,6 +67,14 @@ class HTTPXRequest(BaseRequest):
         write_timeout (:obj:`float`, optional): The maximum amount of time (in seconds) to wait for
             a write operation to complete (in terms of a network socket; i.e. POSTing a request or
             uploading a file).:obj:`None` will set an infinite timeout. Defaults to ``5.0``.
+        pool_timeout (:obj:`float`, optional): The maximum amount of time (in seconds) to wait for
+            a connection from the connection pool becoming available. :obj:`None` will set an
+            infinite timeout. Defaults to :obj:`None`.
+
+            Warning:
+                With a finite pool timeout, you must expect :exc:`telegram.error.TimeOut`
+                exceptions to be thrown when more requests are made simultaneously than there are
+                connections in the connection pool!
     """
 
     __slots__ = ('_client', '_connection_pool_size', '__pool_semaphore')
@@ -78,18 +86,21 @@ class HTTPXRequest(BaseRequest):
         connect_timeout: Optional[float] = 5.0,
         read_timeout: Optional[float] = 5.0,
         write_timeout: Optional[float] = 5.0,
+        pool_timeout: Optional[float] = None,
     ):
         self.__pool_semaphore = asyncio.BoundedSemaphore(connection_pool_size)
+        self._pool_timeout = pool_timeout
 
         timeout = httpx.Timeout(
             connect=connect_timeout,
             read=read_timeout,
             write=write_timeout,
+            pool=1,
         )
-        self._connection_pool_size = connection_pool_size + 1
+        self._connection_pool_size = connection_pool_size
         limits = httpx.Limits(
-            max_connections=self.connection_pool_size,
-            max_keepalive_connections=self.connection_pool_size,
+            max_connections=self.connection_pool_size + 1,
+            max_keepalive_connections=self.connection_pool_size + 1,
         )
 
         # Handle socks5 proxies
@@ -149,15 +160,22 @@ class HTTPXRequest(BaseRequest):
                 write_timeout=write_timeout,
             )
 
-        async with self.__pool_semaphore:
-            out = await self._do_request(
-                method=method,
-                request_data=request_data,
-                connect_timeout=connect_timeout,
-                read_timeout=read_timeout,
-                write_timeout=write_timeout,
-            )
-            return out
+        if pool_timeout is None:
+            pool_timeout = self._pool_timeout
+
+        try:
+            await asyncio.wait_for(self.__pool_semaphore.acquire(), timeout=pool_timeout)
+        except asyncio.TimeoutError as exc:
+            raise TimedOut('Pool timeout') from exc
+        out = await self._do_request(
+            method=method,
+            request_data=request_data,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+            write_timeout=write_timeout,
+        )
+        self.__pool_semaphore.release()
+        return out
 
     async def _do_request(
         self,
@@ -171,6 +189,7 @@ class HTTPXRequest(BaseRequest):
             connect=self._client.timeout.connect,
             read=self._client.timeout.read,
             write=self._client.timeout.write,
+            pool=1,
         )
         if read_timeout is not None:
             timeout.read = read_timeout
@@ -202,9 +221,8 @@ class HTTPXRequest(BaseRequest):
                 _logger.critical(
                     'All connections in the connection pool are occupied. Request was *not* sent '
                     'to Telegram. Adjust connection pool size!',
-                    # exc_info=err,
                 )
-            raise TimedOut() from err
+            raise TimedOut('Pool timeout') from err
         except httpx.HTTPError as err:
             # HTTPError must come last as its the base httpx exception class
             # TODO p4: do something smart here; for now just raise NetworkError

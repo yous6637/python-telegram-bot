@@ -203,7 +203,6 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         self._initialize_persistence(persistence)
 
         self.handlers: Dict[int, List[Handler]] = {}
-        self.groups: List[int] = []
         self.error_handlers: Dict[Callable, Union[bool, DefaultValue]] = {}
 
         # A number of low-level helpers for the internal logic
