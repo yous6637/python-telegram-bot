@@ -16,39 +16,23 @@
 #
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
-# pylint: disable=wrong-import-position,ungrouped-imports,wrong-import-order
 """This module contains the classes JobQueue and Job."""
 
 import datetime
 import weakref
 from typing import TYPE_CHECKING, Optional, Tuple, Union, cast, overload
 
-# We apply a small hack here to make AsyncIOScheduler/Executor work with
-# class based callbacks. See https://github.com/agronholm/apscheduler/issues/583
-# We just override aps.util.iscoroutinefunction, which is an imported function in that module
-# For this to work, this must happen before any other import from APScheduler
-# This is also the reason for the plyint disable at the top of the file and the
-# flake8 setting in setup.cfg
-# TODO: 1. Check if this works if the user manually imports APS stuff before we get here
-#  2. Think about refactoring. `Job.__call__` was introduced in
-#     https://github.com/python-telegram-bot/python-telegram-bot/pull/2692
-#     but there are probably feasible alternatives.
-from telegram._utils.asyncio import is_coroutine_function, run_non_blocking
-from apscheduler import util
-
-util.iscoroutinefunction = is_coroutine_function
-
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.job import Job as APSJob
 
+from telegram._utils.asyncio import run_non_blocking
 from telegram._utils.types import JSONDict
 from telegram.ext._extbot import ExtBot
 from telegram.ext._utils.types import JobCallback
 
 if TYPE_CHECKING:
     from telegram.ext import Dispatcher
-    import apscheduler.job  # noqa: F401
 
 
 class JobQueue:
@@ -180,7 +164,7 @@ class JobQueue:
         date_time = self._parse_time_input(when, shift_day=True)
 
         j = self.scheduler.add_job(
-            job,
+            job.run,
             name=name,
             trigger='date',
             run_date=date_time,
@@ -274,7 +258,7 @@ class JobQueue:
             interval = interval.total_seconds()
 
         j = self.scheduler.add_job(
-            job,
+            job.run,
             trigger='interval',
             args=(self.dispatcher,),
             start_date=dt_first,
@@ -335,7 +319,7 @@ class JobQueue:
         job = Job(callback, context, name)
 
         j = self.scheduler.add_job(
-            job,
+            job.run,
             trigger='cron',
             args=(self.dispatcher,),
             name=name,
@@ -393,7 +377,7 @@ class JobQueue:
         job = Job(callback, context, name)
 
         j = self.scheduler.add_job(
-            job,
+            job.run,
             name=name,
             args=(self.dispatcher,),
             trigger='cron',
@@ -547,27 +531,15 @@ class Job:
                 func=self.callback,
                 args=(dispatcher.context_types.context.from_job(self, dispatcher),),
             )
+
+        # TODO: probably run dispatch_error and update_persistence via `run_async` since those
+        #   shouldn't count towards the jobs execution time
+        #   Additionally double check with the Dispatcher.process_update logic on whether we want
+        #   to update the persistence if the job failed
         except Exception as exc:
             await dispatcher.dispatch_error(None, exc, job=self)
         finally:
             dispatcher.update_persistence(None)
-
-    async def __call__(self, dispatcher: 'Dispatcher') -> None:
-        """Shortcut for::
-
-            await job.run(dispatcher)
-
-        Warning:
-            The fact that jobs are callable should be considered an implementation detail and not
-            as part of PTBs public API.
-
-        .. versionadded:: 14.0
-
-        Args:
-            dispatcher (:class:`telegram.ext.Dispatcher`): The dispatcher this job is associated
-                with.
-        """
-        await self.run(dispatcher=dispatcher)
 
     def schedule_removal(self) -> None:
         """
@@ -610,7 +582,7 @@ class Job:
 
     @classmethod
     def _from_aps_job(cls, job: APSJob) -> 'Job':
-        return job.func
+        return job.func.__self__
 
     def __getattr__(self, item: str) -> object:
         try:
