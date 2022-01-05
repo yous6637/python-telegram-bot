@@ -17,12 +17,13 @@
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the classes JobQueue and Job."""
-
+import asyncio
 import datetime
 import weakref
 from typing import TYPE_CHECKING, Optional, Tuple, Union, cast, overload
 
 import pytz
+from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.job import Job as APSJob
 
@@ -48,11 +49,12 @@ class JobQueue:
 
     """
 
-    __slots__ = ('_dispatcher', 'scheduler')
+    __slots__ = ('_dispatcher', 'scheduler', '_executor')
 
     def __init__(self) -> None:
         self._dispatcher: 'Optional[weakref.ReferenceType[Dispatcher]]' = None
-        self.scheduler = AsyncIOScheduler(timezone=pytz.utc)
+        self._executor = AsyncIOExecutor()
+        self.scheduler = AsyncIOScheduler(timezone=pytz.utc, executors={'default': self._executor})
 
     def _tz_now(self) -> datetime.datetime:
         return datetime.datetime.now(self.scheduler.timezone)
@@ -430,7 +432,7 @@ class JobQueue:
         if not self.scheduler.running:
             self.scheduler.start()
 
-    def stop(self, wait: bool = True) -> None:
+    async def stop(self, wait: bool = True) -> None:
         """Shuts down the :class:`~telegram.ext.JobQueue`.
 
         Args:
@@ -438,6 +440,9 @@ class JobQueue:
                 have finished. Defaults to :obj:`True`.
 
         """
+        if wait:
+            # Unfortunately AsyncIOExecutor just cancels them all ...
+            await asyncio.gather(*self._executor._pending_futures, return_exceptions=True)
         if self.scheduler.running:
             self.scheduler.shutdown(wait=wait)
 
@@ -527,9 +532,12 @@ class Job:
                 with.
         """
         try:
-            await run_non_blocking(
-                func=self.callback,
-                args=(dispatcher.context_types.context.from_job(self, dispatcher),),
+            # We shield the task such that the job isn't cancelled mid-run
+            await asyncio.shield(
+                run_non_blocking(
+                    func=self.callback,
+                    args=(dispatcher.context_types.context.from_job(self, dispatcher),),
+                )
             )
 
         # TODO: probably run dispatch_error and update_persistence via `run_async` since those

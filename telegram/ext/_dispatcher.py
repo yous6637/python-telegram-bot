@@ -456,7 +456,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
             if self.job_queue:
                 _logger.debug('Waiting for running jobs to finish')
-                self.job_queue.stop(wait=True)
+                await self.job_queue.stop(wait=True)
                 _logger.debug('JobQueue stopped')
 
     async def _update_fetcher(self) -> None:
