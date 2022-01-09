@@ -65,8 +65,7 @@ class WebhookServer:
 
     async def serve_forever(self, ready: asyncio.Event = None) -> None:
         async with self._server_lock:
-            # TODO: check with noam of we need the `address` part - it made my setup unusable
-            self._http_server.listen(self.port)  # , address=self.listen)
+            self._http_server.listen(self.port, address=self.listen)
 
             self.is_running = True
             if ready is not None:
