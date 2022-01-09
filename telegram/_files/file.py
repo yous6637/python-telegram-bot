@@ -25,8 +25,9 @@ from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 from telegram import TelegramObject
 from telegram._passport.credentials import decrypt
+from telegram._utils.defaultvalue import DEFAULT_NONE
 from telegram._utils.files import is_local_file
-from telegram._utils.types import FilePathInput
+from telegram._utils.types import FilePathInput, ODVInput
 
 if TYPE_CHECKING:
     from telegram import Bot, FileCredentials
@@ -100,10 +101,10 @@ class File(TelegramObject):
         self,
         custom_path: FilePathInput = None,
         out: IO = None,
-        read_timeout: float = None,
-        connect_timeout: float = None,
-        write_timeout: float = None,
-        pool_timeout: float = None,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
     ) -> Union[Path, IO]:
         """
         Download this file. By default, the file is saved in the current working directory with its

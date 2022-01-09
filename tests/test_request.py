@@ -25,6 +25,8 @@ from typing import Tuple, Any, Coroutine, Callable
 import httpx
 import pytest
 
+from telegram._utils.defaultvalue import DEFAULT_NONE
+from telegram._utils.types import ODVInput
 from telegram.error import (
     TelegramError,
     ChatMigrated,
@@ -288,7 +290,7 @@ class TestRequest:
             method: str,
             url: str,
             request_data: RequestData = None,
-            read_timeout: float = None,
+            read_timeout: ODVInput[float] = DEFAULT_NONE,
             *args,
             **kwargs,
         ):

@@ -52,6 +52,7 @@ from telegram import (
     InlineQueryResultCachedPhoto,
     InputMediaPhoto,
 )
+from telegram._utils.types import ODVInput
 from telegram.constants import InputMediaType
 from telegram.ext import (
     Dispatcher,
@@ -121,10 +122,10 @@ class TestHttpxRequest(HTTPXRequest):
         method: str,
         url: str,
         request_data: RequestData = None,
-        read_timeout: float = None,
-        connect_timeout: float = None,
-        write_timeout: float = None,
-        pool_timeout: float = None,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
     ) -> bytes:
         try:
             return await super()._request_wrapper(

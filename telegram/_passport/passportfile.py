@@ -21,7 +21,8 @@
 from typing import TYPE_CHECKING, Any, List, Optional
 
 from telegram import TelegramObject
-from telegram._utils.types import JSONDict
+from telegram._utils.defaultvalue import DEFAULT_NONE
+from telegram._utils.types import JSONDict, ODVInput
 
 if TYPE_CHECKING:
     from telegram import Bot, File, FileCredentials
@@ -137,10 +138,10 @@ class PassportFile(TelegramObject):
 
     async def get_file(
         self,
-        read_timeout: float = None,
-        write_timeout: float = None,
-        connect_timeout: float = None,
-        pool_timeout: float = None,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
         api_kwargs: JSONDict = None,
     ) -> 'File':
         """

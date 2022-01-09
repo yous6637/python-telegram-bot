@@ -42,7 +42,8 @@ from telegram.error import (
     RetryAfter,
     Forbidden,
 )
-from telegram._utils.types import JSONDict
+from telegram._utils.types import JSONDict, ODVInput
+from telegram._utils.defaultvalue import DEFAULT_NONE as _DEFAULT_NONE
 
 RT = TypeVar('RT', bound='BaseRequest')
 
@@ -78,6 +79,17 @@ class BaseRequest(
 
     USER_AGENT: ClassVar[str] = f'python-telegram-bot v{ptb_ver} (https://python-telegram-bot.org)'
     """:obj:`str`: A description that can be used as user agent for requests made to the Bot API.
+    """
+    DEFAULT_NONE: ClassVar = _DEFAULT_NONE
+    """:class:`object`: A special object that indicates that an argument of a function was not
+    explicitly passed. Used for the timeout parameters of :meth:`post` and :meth:`do_request`.
+
+    Example:
+        When calling ``request.post(url)``, ``request`` should use the default timeouts set on
+        initialization. When calling ``request.post(url, connect_timeout=5, read_timeout=None)``,
+        ``request`` should use ``5`` for the connect timeout and :obj:`None` for the read timeout.
+
+        Use ``if parameter is (not) BaseRequest.DEFAULT_NONE:`` to check if the parameter was set.
     """
 
     @property
@@ -117,10 +129,10 @@ class BaseRequest(
         self,
         url: str,
         request_data: RequestData = None,
-        connect_timeout: float = None,
-        read_timeout: float = None,
-        write_timeout: float = None,
-        pool_timeout: float = None,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
     ) -> Union[JSONDict, bool]:
         """Makes a request to the Bot API handles the return code and parses the answer.
 
@@ -168,10 +180,10 @@ class BaseRequest(
     async def retrieve(
         self,
         url: str,
-        read_timeout: float = None,
-        connect_timeout: float = None,
-        write_timeout: float = None,
-        pool_timeout: float = None,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
     ) -> bytes:
         """Retrieve the contents of a file by its URL.
 
@@ -203,10 +215,10 @@ class BaseRequest(
         url: str,
         method: str,
         request_data: RequestData = None,
-        read_timeout: float = None,
-        connect_timeout: float = None,
-        write_timeout: float = None,
-        pool_timeout: float = None,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
     ) -> bytes:
         """Wraps the real implementation request method.
 
@@ -311,10 +323,10 @@ class BaseRequest(
         url: str,
         method: str,
         request_data: RequestData = None,
-        connect_timeout: float = None,
-        read_timeout: float = None,
-        write_timeout: float = None,
-        pool_timeout: float = None,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
     ) -> Tuple[int, bytes]:
         """Makes a request to the Bot API. Must be implemented by a subclass.
 

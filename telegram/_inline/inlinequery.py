@@ -22,7 +22,8 @@
 from typing import TYPE_CHECKING, Any, Optional, Union, Callable, ClassVar, Sequence
 
 from telegram import Location, TelegramObject, User, constants
-from telegram._utils.types import JSONDict
+from telegram._utils.defaultvalue import DEFAULT_NONE
+from telegram._utils.types import JSONDict, ODVInput
 
 if TYPE_CHECKING:
     from telegram import Bot, InlineQueryResult
@@ -119,10 +120,10 @@ class InlineQuery(TelegramObject):
         next_offset: str = None,
         switch_pm_text: str = None,
         switch_pm_parameter: str = None,
-        read_timeout: float = None,
-        write_timeout: float = None,
-        connect_timeout: float = None,
-        pool_timeout: float = None,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
         current_offset: str = None,
         api_kwargs: JSONDict = None,
         auto_pagination: bool = False,

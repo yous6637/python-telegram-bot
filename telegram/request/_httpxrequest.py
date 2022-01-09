@@ -22,6 +22,8 @@ from typing import Tuple, Optional
 
 import httpx
 
+from telegram._utils.defaultvalue import DefaultValue
+from telegram._utils.types import ODVInput
 from telegram.error import TimedOut, NetworkError
 from telegram.request import BaseRequest, RequestData
 
@@ -146,14 +148,24 @@ class HTTPXRequest(BaseRequest):
         url: str,
         method: str,
         request_data: RequestData = None,
-        connect_timeout: float = None,
-        read_timeout: float = None,
-        write_timeout: float = None,
-        pool_timeout: float = None,
+        connect_timeout: ODVInput[float] = BaseRequest.DEFAULT_NONE,
+        read_timeout: ODVInput[float] = BaseRequest.DEFAULT_NONE,
+        write_timeout: ODVInput[float] = BaseRequest.DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = BaseRequest.DEFAULT_NONE,
     ) -> Tuple[int, bytes]:
         """See :meth:`BaseRequest.do_request`."""
-        if pool_timeout is None:
+        if isinstance(pool_timeout, DefaultValue):
             pool_timeout = self._pool_timeout
+
+        if pool_timeout != 0:
+            try:
+                await asyncio.wait_for(self.__pool_semaphore.acquire(), timeout=0)
+            except asyncio.TimeoutError:
+                _logger.debug(
+                    'All connections in the pool are currently busy. Waiting pool_timeout=%s for '
+                    'a connection to become available.',
+                    pool_timeout,
+                )
 
         try:
             await asyncio.wait_for(self.__pool_semaphore.acquire(), timeout=pool_timeout)
@@ -177,9 +189,9 @@ class HTTPXRequest(BaseRequest):
         url: str,
         method: str,
         request_data: RequestData = None,
-        connect_timeout: float = None,
-        read_timeout: float = None,
-        write_timeout: float = None,
+        connect_timeout: ODVInput[float] = BaseRequest.DEFAULT_NONE,
+        read_timeout: ODVInput[float] = BaseRequest.DEFAULT_NONE,
+        write_timeout: ODVInput[float] = BaseRequest.DEFAULT_NONE,
     ) -> Tuple[int, bytes]:
         timeout = httpx.Timeout(
             connect=self._client.timeout.connect,
@@ -187,11 +199,11 @@ class HTTPXRequest(BaseRequest):
             write=self._client.timeout.write,
             pool=1,
         )
-        if read_timeout is not None:
+        if not isinstance(read_timeout, DefaultValue):
             timeout.read = read_timeout
-        if write_timeout is not None:
+        if not isinstance(write_timeout, DefaultValue):
             timeout.write = write_timeout
-        if connect_timeout is not None:
+        if not isinstance(connect_timeout, DefaultValue):
             timeout.connect = connect_timeout
 
         # TODO p0: On Linux, use setsockopt to properly set socket level keepalive.

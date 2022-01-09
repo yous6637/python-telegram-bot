@@ -39,6 +39,8 @@ from typing import (
     no_type_check,
 )
 
+from telegram._utils.defaultvalue import DEFAULT_NONE
+from telegram._utils.types import ODVInput
 from telegram.error import InvalidToken, RetryAfter, TimedOut, Forbidden, TelegramError
 from telegram._utils.warnings import warn
 from telegram.ext import Dispatcher
@@ -212,9 +214,9 @@ class Updater(Generic[BT, _DispType]):
         timeout: int = 10,
         bootstrap_retries: int = -1,
         read_timeout: float = 2,
-        write_timeout: float = None,
-        connect_timeout: float = None,
-        pool_timeout: float = None,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
         allowed_updates: List[str] = None,
         drop_pending_updates: bool = None,
     ) -> asyncio.Queue:
