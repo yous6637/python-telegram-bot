@@ -43,27 +43,16 @@ class RequestData:
     Attributes:
         contains_files (:obj:`bool`): Whether this object contains files to be uploaded via
             ``multipart/form-data``.
-        endpoint (:obj:`str`): Optional. The endpoint of the Bot API that this request is directed
-            at. E.g. ``'sendMessage'``.
     """
 
-    __slots__ = ('_parameters', 'contains_files', 'endpoint', '_base_url')
+    __slots__ = ('_parameters', 'contains_files')
 
     def __init__(
         self,
-        base_url: str,
-        endpoint: str = None,
         parameters: List[RequestParameter] = None,
     ):
-        self._base_url = base_url
-        self.endpoint = endpoint
         self._parameters = parameters or []
         self.contains_files = any(param.input_files for param in self._parameters)
-
-    @property
-    def url(self) -> str:
-        """The URL for this request, including the endpoint, but excluding the parameters."""
-        return f'{self._base_url}/{self.endpoint}'
 
     @property
     def parameters(self) -> Dict[str, Union[str, int, List, Dict]]:
@@ -92,16 +81,17 @@ class RequestData:
             return urlencode(self.json_parameters, **encode_kwargs)
         return urlencode(self.json_parameters)
 
-    def parametrized_url(self, encode_kwargs: Dict[str, Any] = None) -> str:
+    def parametrized_url(self, url: str, encode_kwargs: Dict[str, Any] = None) -> str:
         """Shortcut for attaching the return value of :meth:`url_encoded_parameters` to the
         :attr:`url`.
 
         Args:
+            url (:obj:`str`): The URL the parameters will be attached to.
             encode_kwargs (Dict[:obj:`str`, any], optional): Additional keyword arguments to pass
                 along to :meth:`urllib.parse.urlencode`.
         """
         url_parameters = self.url_encoded_parameters(encode_kwargs=encode_kwargs)
-        return f'{self.url}?{url_parameters}'
+        return f'{url}?{url_parameters}'
 
     @property
     def json_payload(self) -> bytes:

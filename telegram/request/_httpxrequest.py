@@ -143,23 +143,15 @@ class HTTPXRequest(BaseRequest):
 
     async def do_request(
         self,
+        url: str,
         method: str,
-        request_data: RequestData,
+        request_data: RequestData = None,
         connect_timeout: float = None,
         read_timeout: float = None,
         write_timeout: float = None,
         pool_timeout: float = None,
     ) -> Tuple[int, bytes]:
         """See :meth:`BaseRequest.do_request`."""
-        if request_data.endpoint == 'getUpdates':
-            return await self._do_request(
-                method=method,
-                request_data=request_data,
-                connect_timeout=connect_timeout,
-                read_timeout=read_timeout,
-                write_timeout=write_timeout,
-            )
-
         if pool_timeout is None:
             pool_timeout = self._pool_timeout
 
@@ -167,20 +159,24 @@ class HTTPXRequest(BaseRequest):
             await asyncio.wait_for(self.__pool_semaphore.acquire(), timeout=pool_timeout)
         except asyncio.TimeoutError as exc:
             raise TimedOut('Pool timeout') from exc
+
         out = await self._do_request(
+            url=url,
             method=method,
             request_data=request_data,
             connect_timeout=connect_timeout,
             read_timeout=read_timeout,
             write_timeout=write_timeout,
         )
+
         self.__pool_semaphore.release()
         return out
 
     async def _do_request(
         self,
+        url: str,
         method: str,
-        request_data: RequestData,
+        request_data: RequestData = None,
         connect_timeout: float = None,
         read_timeout: float = None,
         write_timeout: float = None,
@@ -210,7 +206,7 @@ class HTTPXRequest(BaseRequest):
         try:
             res = await self._client.request(
                 method=method,
-                url=request_data.url,
+                url=url,
                 headers={'User-Agent': self.USER_AGENT},
                 timeout=timeout,
                 files=files,

@@ -35,6 +35,7 @@ from typing import (
     Optional,
     overload,
     Type,
+    Tuple,
 )
 
 from telegram import Bot
@@ -164,7 +165,7 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         self._base_url: DVInput[str] = DefaultValue('https://api.telegram.org/bot')
         self._base_file_url: DVInput[str] = DefaultValue('https://api.telegram.org/file/bot')
         self._request_kwargs: DVInput[Dict[str, Any]] = DefaultValue({})
-        self._request: ODVInput['BaseRequest'] = DEFAULT_NONE
+        self._request: ODVInput[Tuple['BaseRequest', 'BaseRequest']] = DEFAULT_NONE
         self._private_key: ODVInput[bytes] = DEFAULT_NONE
         self._private_key_password: ODVInput[bytes] = DEFAULT_NONE
         self._defaults: ODVInput['Defaults'] = DEFAULT_NONE
@@ -209,7 +210,10 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
                 request_kwargs[  # pylint: disable=unsupported-assignment-operation
                     'connection_pool_size'
                 ] = self._get_connection_pool_size(self._workers)
-            request = HTTPXRequest(**request_kwargs)  # pylint: disable=not-a-mapping
+            request = (
+                HTTPXRequest(**request_kwargs),  # pylint: disable=not-a-mapping
+                HTTPXRequest(**request_kwargs),  # pylint: disable=not-a-mapping
+            )
 
         return ExtBot(
             token=self._token,
@@ -343,7 +347,7 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         self._request_kwargs = request_kwargs
         return self
 
-    def _set_request(self: BuilderType, request: BaseRequest) -> BuilderType:
+    def _set_request(self: BuilderType, request: Tuple[BaseRequest, BaseRequest]) -> BuilderType:
         if not isinstance(self._request_kwargs, DefaultValue):
             raise RuntimeError(_TWO_ARGS_REQ.format('request', 'request_kwargs'))
         if self._bot is not DEFAULT_NONE:
@@ -602,14 +606,15 @@ class DispatcherBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         """
         return self._set_request_kwargs(request_kwargs)
 
-    def request(self: BuilderType, request: BaseRequest) -> BuilderType:
+    def request(self: BuilderType, request: Tuple[BaseRequest, BaseRequest]) -> BuilderType:
         """Sets a :class:`telegram.utils.Request` object to be used for
         :attr:`telegram.ext.Dispatcher.bot`.
 
         .. seealso:: :meth:`request_kwargs`
 
         Args:
-            request (:class:`telegram.utils.Request`): The request object.
+            request (Tuple[:class:`telegram.request.BaseRequest`, \
+                :class:`telegram.request.BaseRequest`]): The request objects.
 
         Returns:
             :class:`DispatcherBuilder`: The same builder with the updated argument.
@@ -942,14 +947,15 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         """
         return self._set_request_kwargs(request_kwargs)
 
-    def request(self: BuilderType, request: BaseRequest) -> BuilderType:
+    def request(self: BuilderType, request: Tuple[BaseRequest, BaseRequest]) -> BuilderType:
         """Sets a :class:`telegram.utils.Request` object to be used for
         :attr:`telegram.ext.Updater.bot`.
 
         .. seealso:: :meth:`request_kwargs`
 
         Args:
-            request (:class:`telegram.utils.Request`): The request object.
+            request (Tuple[:class:`telegram.request.BaseRequest`, \
+                :class:`telegram.request.BaseRequest`]): The request objects.
 
         Returns:
             :class:`UpdaterBuilder`: The same builder with the updated argument.

@@ -161,10 +161,12 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         token (:obj:`str`): Bot's unique authentication.
         base_url (:obj:`str`, optional): Telegram Bot API service URL.
         base_file_url (:obj:`str`, optional): Telegram Bot API file URL.
-        request (:class:`telegram.request.BaseRequest`, optional): Pre initialized
-            :class:`telegram.request.BaseRequest`. If not passed, an implementation of
-            :class:`telegram.request.BaseRequest` based on the library
-            `httpx <https://www.python-httpx.org>`_ will be used.
+        request (Tuple[:class:`telegram.request.BaseRequest`, \
+            :class:`telegram.request.BaseRequest`, optional): Pre initialized
+            :class:`telegram.request.BaseRequest` instances. The first instance will be used
+            exclusively for :attr:`get_updates` and the second instance for all other methods.
+            If not passed, an implementation of :class:`telegram.request.BaseRequest` based on the
+            library `httpx <https://www.python-httpx.org>`_ will be used.
         private_key (:obj:`bytes`, optional): Private key for decryption of telegram passport data.
         private_key_password (:obj:`bytes`, optional): Password for above private key.
 
@@ -185,7 +187,7 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         token: str,
         base_url: str = 'https://api.telegram.org/bot',
         base_file_url: str = 'https://api.telegram.org/file/bot',
-        request: BaseRequest = None,
+        request: Tuple[BaseRequest, BaseRequest] = None,
         private_key: bytes = None,
         private_key_password: bytes = None,
     ):
@@ -197,7 +199,7 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         self.private_key = None
         self.logger = logging.getLogger(__name__)
 
-        self._request = HTTPXRequest() if request is None else request
+        self._request = (HTTPXRequest(), HTTPXRequest()) if request is None else request
 
         if private_key:
             if not CRYPTO_INSTALLED:
@@ -282,12 +284,16 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         # We don't do this earlier so that _insert_defaults (see above) has a chance to convert
         # to the default timezone in case this is called by ExtBot
         request_data = RequestData(
-            base_url=self.base_url,
-            endpoint=endpoint,
             parameters=[RequestParameter.from_input(key, value) for key, value in data.items()],
         )
 
-        return await self.request.post(
+        if endpoint == 'getUpdates':
+            request = self._request[0]
+        else:
+            request = self._request[1]
+
+        return await request.post(
+            url=f"{self.base_url}/{endpoint}",
             request_data=request_data,
             read_timeout=read_timeout,
             write_timeout=write_timeout,
@@ -379,7 +385,7 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
             Requests to the Bot API are made by the various methods of this class. This attribute
             should *not* be used manually.
         """
-        return self._request
+        return self._request[1]
 
     @staticmethod
     def _validate_token(token: str) -> str:

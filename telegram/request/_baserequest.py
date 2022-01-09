@@ -115,7 +115,8 @@ class BaseRequest(
 
     async def post(
         self,
-        request_data: RequestData,
+        url: str,
+        request_data: RequestData = None,
         connect_timeout: float = None,
         read_timeout: float = None,
         write_timeout: float = None,
@@ -129,8 +130,9 @@ class BaseRequest(
 
 
         Args:
-            request_data (:class:`telegram.request.RequestData`): An object containing
-                all information about target, parameters and files to upload for the request.
+            url (:obj:`str`): The URL to request.
+            request_data (:class:`telegram.request.RequestData`, optional): An object containing
+                information about parameters and files to upload for the request.
             connect_timeout (:obj:`float`, optional): If passed, specifies the maximum amount of
                 time (in seconds) to wait for a connection attempt to a server to succeed instead
                 of the time specified during creating of this object.
@@ -150,6 +152,7 @@ class BaseRequest(
 
         """
         result = await self._request_wrapper(
+            url=url,
             method='POST',
             request_data=request_data,
             read_timeout=read_timeout,
@@ -187,8 +190,8 @@ class BaseRequest(
 
         """
         return await self._request_wrapper(
+            url=url,
             method='GET',
-            request_data=RequestData(base_url=url),
             read_timeout=read_timeout,
             write_timeout=write_timeout,
             connect_timeout=connect_timeout,
@@ -197,8 +200,9 @@ class BaseRequest(
 
     async def _request_wrapper(
         self,
+        url: str,
         method: str,
-        request_data: RequestData,
+        request_data: RequestData = None,
         read_timeout: float = None,
         connect_timeout: float = None,
         write_timeout: float = None,
@@ -211,10 +215,11 @@ class BaseRequest(
         * Parse the Telegram server response.
 
         Args:
+            url (:obj:`str`): The URL to request.
             method (:obj:`str`): HTTP method (i.e. 'POST', 'GET', etc.).
             url (:obj:`str`): The request's URL.
-            request_data (:class:`telegram.request.RequestData`): An object containing
-                all information about target, parameters and files to upload for the request.
+            request_data (:class:`telegram.request.RequestData`, optional): An object containing
+                information about parameters and files to upload for the request.
             read_timeout: Timeout for waiting to server's response.
 
         Returns:
@@ -229,7 +234,8 @@ class BaseRequest(
 
         try:
             code, payload = await self.do_request(
-                method,
+                url=url,
+                method=method,
                 request_data=request_data,
                 read_timeout=read_timeout,
                 write_timeout=write_timeout,
@@ -302,8 +308,9 @@ class BaseRequest(
     @abc.abstractmethod
     async def do_request(
         self,
+        url: str,
         method: str,
-        request_data: RequestData,
+        request_data: RequestData = None,
         connect_timeout: float = None,
         read_timeout: float = None,
         write_timeout: float = None,
@@ -316,9 +323,10 @@ class BaseRequest(
             called manually.
 
         Args:
+            url (:obj:`str`): The URL to request.
             method (:obj:`str`): HTTP method (i.e. ``'POST'``, ``'GET'``, etc.).
-            request_data (:class:`telegram.request.RequestData`): An object containing
-                all information about target, parameters and files to upload for the request.
+            request_data (:class:`telegram.request.RequestData`, optional): An object containing
+                information about parameters and files to upload for the request.
             read_timeout (:obj:`float`, optional): If this value is specified, use it as the read
                 timeout from the server (instead of the one specified during creation of the
                 connection pool).
