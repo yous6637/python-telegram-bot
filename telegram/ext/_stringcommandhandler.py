@@ -41,7 +41,7 @@ class StringCommandHandler(Handler[str, CCT]):
         put in the queue. For example to send messages with the bot using command line or API.
 
     Warning:
-        When setting ``run_async`` to :obj:`True`, you cannot rely on adding custom
+        When setting ``block`` to :obj:`True`, you cannot rely on adding custom
         attributes to :class:`telegram.ext.CallbackContext`. See its docs for more info.
 
     Args:
@@ -70,10 +70,7 @@ class StringCommandHandler(Handler[str, CCT]):
         callback: Callable[[str, CCT], RT],
         run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
     ):
-        super().__init__(
-            callback,
-            run_async=run_async,
-        )
+        super().__init__(callback, block=run_async)
         self.command = command
 
     def check_update(self, update: object) -> Optional[List[str]]:

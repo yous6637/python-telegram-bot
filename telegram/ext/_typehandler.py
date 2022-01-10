@@ -32,7 +32,7 @@ class TypeHandler(Handler[UT, CCT]):
     """Handler class to handle updates of custom types.
 
     Warning:
-        When setting ``run_async`` to :obj:`True`, you cannot rely on adding custom
+        When setting ``block`` to :obj:`True`, you cannot rely on adding custom
         attributes to :class:`telegram.ext.CallbackContext`. See its docs for more info.
 
     Args:
@@ -66,10 +66,7 @@ class TypeHandler(Handler[UT, CCT]):
         strict: bool = False,
         run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
     ):
-        super().__init__(
-            callback,
-            run_async=run_async,
-        )
+        super().__init__(callback, block=run_async)
         self.type = type  # pylint: disable=assigning-non-slot
         self.strict = strict  # pylint: disable=assigning-non-slot
 

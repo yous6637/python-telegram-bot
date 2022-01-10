@@ -175,8 +175,8 @@ class ConversationHandler(Handler[Update, CCT]):
         map_to_parent (Dict[:obj:`object`, :obj:`object`], optional): A :obj:`dict` that can be
             used to instruct a nested conversationhandler to transition into a mapped state on
             its parent conversationhandler in place of a specified nested state.
-        run_async (:obj:`bool`, optional): Pass :obj:`True` to *override* the
-            :attr:`Handler.run_async` setting of all handlers (in :attr:`entry_points`,
+        block (:obj:`bool`, optional): Pass :obj:`True` to *override* the
+            :attr:`Handler.block` setting of all handlers (in :attr:`entry_points`,
             :attr:`states` and :attr:`fallbacks`).
 
             Note:
@@ -191,8 +191,8 @@ class ConversationHandler(Handler[Update, CCT]):
     Attributes:
         persistent (:obj:`bool`): Optional. If the conversations dict for this handler should be
             saved. Name is required and persistence has to be set in :class:`telegram.ext.Updater`
-        run_async (:obj:`bool`): If :obj:`True`, will override the
-            :attr:`Handler.run_async` setting of all internal handlers on initialization.
+        block (:obj:`bool`): If :obj:`False`, will override the
+            :attr:`Handler.block` setting of all internal handlers on initialization.
 
             .. versionadded:: 13.2
 
@@ -239,7 +239,7 @@ class ConversationHandler(Handler[Update, CCT]):
         name: str = None,
         persistent: bool = False,
         map_to_parent: Dict[object, object] = None,
-        run_async: bool = False,
+        block: bool = False,
     ):
         # these imports need to be here because of circular import error otherwise
         from telegram.ext import (  # pylint: disable=import-outside-toplevel
@@ -249,7 +249,7 @@ class ConversationHandler(Handler[Update, CCT]):
             PollAnswerHandler,
         )
 
-        self.run_async = run_async
+        self.block = block
 
         self._entry_points = entry_points
         self._states = states
@@ -363,8 +363,8 @@ class ConversationHandler(Handler[Update, CCT]):
                     stacklevel=2,
                 )
 
-            if self.run_async:
-                handler.run_async = True
+            if self.block:
+                handler.block = True
 
     @property
     def entry_points(self) -> List[Handler]:
@@ -691,7 +691,7 @@ class ConversationHandler(Handler[Update, CCT]):
                 update, dispatcher, handler_check_result, context
             )
         except DispatcherHandlerStop as exception:
-            new_state = exception.state  # type: ignore[assignment]
+            new_state = exception.state
             raise_dp_handler_stop = True
         with self._timeout_jobs_lock:
             if self.conversation_timeout:

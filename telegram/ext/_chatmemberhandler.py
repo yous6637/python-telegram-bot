@@ -33,7 +33,7 @@ class ChatMemberHandler(Handler[Update, CCT]):
     .. versionadded:: 13.4
 
     Warning:
-        When setting ``run_async`` to :obj:`True`, you cannot rely on adding custom
+        When setting ``block`` to :obj:`True`, you cannot rely on adding custom
         attributes to :class:`telegram.ext.CallbackContext`. See its docs for more info.
 
     Args:
@@ -74,10 +74,7 @@ class ChatMemberHandler(Handler[Update, CCT]):
         chat_member_types: int = MY_CHAT_MEMBER,
         run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
     ):
-        super().__init__(
-            callback,
-            run_async=run_async,
-        )
+        super().__init__(callback, block=run_async)
 
         self.chat_member_types = chat_member_types
 

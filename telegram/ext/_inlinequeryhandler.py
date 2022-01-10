@@ -46,7 +46,7 @@ class InlineQueryHandler(Handler[Update, CCT]):
     documentation of the ``re`` module for more information.
 
     Warning:
-        * When setting ``run_async`` to :obj:`True`, you cannot rely on adding custom
+        * When setting ``block`` to :obj:`True`, you cannot rely on adding custom
           attributes to :class:`telegram.ext.CallbackContext`. See its docs for more info.
         * :attr:`telegram.InlineQuery.chat_type` will not be set for inline queries from secret
           chats and may not be set for inline queries coming from third-party clients. These
@@ -89,10 +89,7 @@ class InlineQueryHandler(Handler[Update, CCT]):
         run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
         chat_types: List[str] = None,
     ):
-        super().__init__(
-            callback,
-            run_async=run_async,
-        )
+        super().__init__(callback, block=run_async)
 
         if isinstance(pattern, str):
             pattern = re.compile(pattern)

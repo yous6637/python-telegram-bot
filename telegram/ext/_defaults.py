@@ -189,7 +189,7 @@ class Defaults:
 
     @property
     def run_async(self) -> bool:
-        """:obj:`bool`: Optional. Default setting for the ``run_async`` parameter of
+        """:obj:`bool`: Optional. Default setting for the ``block`` parameter of
         handlers and error handlers registered through :meth:`Dispatcher.add_handler` and
         :meth:`Dispatcher.add_error_handler`.
         """

@@ -21,13 +21,11 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, Generic
 
 from telegram._utils.asyncio import run_non_blocking
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
+from telegram._utils.defaultvalue import DefaultValue, DEFAULT_TRUE
 from telegram.ext._utils.types import CCT, HandlerCallback
-from telegram.ext._extbot import ExtBot
 
 if TYPE_CHECKING:
     from telegram.ext import Dispatcher
-    import asyncio
 
 RT = TypeVar('RT')
 UT = TypeVar('UT')
@@ -37,7 +35,7 @@ class Handler(Generic[UT, CCT], ABC):
     """The base class for all update handlers. Create custom handlers by inheriting from it.
 
     Warning:
-        When setting ``run_async`` to :obj:`True`, you cannot rely on adding custom
+        When setting ``block`` to :obj:`True`, you cannot rely on adding custom
         attributes to :class:`telegram.ext.CallbackContext`. See its docs for more info.
 
     Args:
@@ -47,27 +45,27 @@ class Handler(Generic[UT, CCT], ABC):
 
             The return value of the callback is usually ignored except for the special case of
             :class:`telegram.ext.ConversationHandler`.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the callback will run asynchronously.
+            Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the callback will run asynchronously.
 
     """
 
     __slots__ = (
         'callback',
-        'run_async',
+        'block',
     )
 
     def __init__(
         self,
         callback: HandlerCallback[UT, CCT, RT],
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        block: Union[bool, DefaultValue] = DEFAULT_TRUE,
     ):
         self.callback = callback
-        self.run_async = run_async
+        self.block = block
 
     @abstractmethod
     def check_update(self, update: object) -> Optional[Union[bool, object]]:
@@ -95,7 +93,7 @@ class Handler(Generic[UT, CCT], ABC):
         dispatcher: 'Dispatcher',
         check_result: object,
         context: CCT,
-    ) -> Union[RT, 'asyncio.Task[Optional[RT]]']:
+    ) -> RT:
         """
         This method is called if it was determined that an update should indeed
         be handled by this instance. Calls :attr:`callback` along with its respectful
@@ -111,18 +109,7 @@ class Handler(Generic[UT, CCT], ABC):
                 the dispatcher.
 
         """
-        run_async = self.run_async
-        if (
-            self.run_async is DEFAULT_FALSE
-            and isinstance(dispatcher.bot, ExtBot)
-            and dispatcher.bot.defaults
-            and dispatcher.bot.defaults.run_async
-        ):
-            run_async = True
-
         self.collect_additional_context(context, update, dispatcher, check_result)
-        if run_async:
-            return await dispatcher.run_async(self.callback, args=(update, context), update=update)
 
         return await run_non_blocking(
             func=self.callback,

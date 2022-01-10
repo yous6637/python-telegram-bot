@@ -35,7 +35,7 @@ class MessageHandler(Handler[Update, CCT]):
     """Handler class to handle telegram messages. They might contain text, media or status updates.
 
     Warning:
-        When setting ``run_async`` to :obj:`True`, you cannot rely on adding custom
+        When setting ``block`` to :obj:`True`, you cannot rely on adding custom
         attributes to :class:`telegram.ext.CallbackContext`. See its docs for more info.
 
     Args:
@@ -76,7 +76,7 @@ class MessageHandler(Handler[Update, CCT]):
         run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
     ):
 
-        super().__init__(callback, run_async=run_async)
+        super().__init__(callback, block=run_async)
         self.filters = filters if filters is not None else filters_module.ALL
 
     def check_update(self, update: object) -> Optional[Union[bool, Dict[str, list]]]:

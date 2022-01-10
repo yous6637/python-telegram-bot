@@ -57,7 +57,7 @@ class CallbackQueryHandler(Handler[Update, CCT]):
           .. versionadded:: 13.6
 
     Warning:
-        When setting ``run_async`` to :obj:`True`, you cannot rely on adding custom
+        When setting ``block`` to :obj:`True`, you cannot rely on adding custom
         attributes to :class:`telegram.ext.CallbackContext`. See its docs for more info.
 
     Args:
@@ -107,10 +107,7 @@ class CallbackQueryHandler(Handler[Update, CCT]):
         pattern: Union[str, Pattern, type, Callable[[object], Optional[bool]]] = None,
         run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
     ):
-        super().__init__(
-            callback,
-            run_async=run_async,
-        )
+        super().__init__(callback, block=run_async)
 
         if isinstance(pattern, str):
             pattern = re.compile(pattern)

@@ -719,7 +719,7 @@ class DispatcherBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         asynchronously at the same time.
 
          .. seealso:: :attr:`telegram.ext.Handler.run_sync`,
-             :attr:`telegram.ext.Defaults.run_async`
+             :attr:`telegram.ext.Defaults.block`
 
         Args:
             workers (:obj:`int`): The number of worker threads.
@@ -1062,7 +1062,7 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         asynchronously at the same time.
 
          .. seealso:: :attr:`telegram.ext.Handler.run_sync`,
-             :attr:`telegram.ext.Defaults.run_async`
+             :attr:`telegram.ext.Defaults.block`
 
         Args:
             workers (:obj:`int`): The number of worker threads.
