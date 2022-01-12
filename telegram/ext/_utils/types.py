@@ -50,12 +50,12 @@ CCT = TypeVar('CCT', bound='CallbackContext')
 
 RT = TypeVar('RT')
 UT = TypeVar('UT')
-HandlerCallback = Callable[[UT, CCT], Union[Coroutine[Any, Any, RT], RT]]
+HandlerCallback = Callable[[UT, CCT], Coroutine[Any, Any, RT]]
 """Type of a handler callback
 
     .. versionadded:: 14.0
 """
-JobCallback = Callable[[CCT], Union[Coroutine[Any, Any, Any], Any]]
+JobCallback = Callable[[CCT], Coroutine[Any, Any, Any]]
 """Type of a job callback
 
     .. versionadded:: 14.0

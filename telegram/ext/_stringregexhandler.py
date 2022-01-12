@@ -19,11 +19,12 @@
 """This module contains the StringRegexHandler class."""
 
 import re
-from typing import TYPE_CHECKING, Callable, Match, Optional, Pattern, TypeVar, Union
+from typing import TYPE_CHECKING, Match, Optional, Pattern, TypeVar, Union
 
+from telegram._utils.types import DVInput
 from telegram.ext import Handler
-from telegram.ext._utils.types import CCT
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
+from telegram.ext._utils.types import CCT, HandlerCallback
+from telegram._utils.defaultvalue import DEFAULT_TRUE
 
 if TYPE_CHECKING:
     from telegram.ext import Dispatcher
@@ -53,13 +54,16 @@ class StringRegexHandler(Handler[str, CCT]):
 
             The return value of the callback is usually ignored except for the special case of
             :class:`telegram.ext.ConversationHandler`.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         pattern (:obj:`str` | :obj:`Pattern`): The regex pattern.
         callback (:obj:`callable`): The callback function for this handler.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
 
     """
 
@@ -68,10 +72,10 @@ class StringRegexHandler(Handler[str, CCT]):
     def __init__(
         self,
         pattern: Union[str, Pattern],
-        callback: Callable[[str, CCT], RT],
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        callback: HandlerCallback[str, CCT, RT],
+        block: DVInput[bool] = DEFAULT_TRUE,
     ):
-        super().__init__(callback, block=run_async)
+        super().__init__(callback, block=block)
 
         if isinstance(pattern, str):
             pattern = re.compile(pattern)

@@ -18,16 +18,15 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the StringCommandHandler class."""
 
-from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, List, Optional
 
+from telegram._utils.types import DVInput
 from telegram.ext import Handler
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
-from telegram.ext._utils.types import CCT
+from telegram._utils.defaultvalue import DEFAULT_TRUE
+from telegram.ext._utils.types import CCT, HandlerCallback, RT
 
 if TYPE_CHECKING:
     from telegram.ext import Dispatcher
-
-RT = TypeVar('RT')
 
 
 class StringCommandHandler(Handler[str, CCT]):
@@ -52,13 +51,16 @@ class StringCommandHandler(Handler[str, CCT]):
 
             The return value of the callback is usually ignored except for the special case of
             :class:`telegram.ext.ConversationHandler`.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         command (:obj:`str`): The command this handler should listen for.
         callback (:obj:`callable`): The callback function for this handler.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
 
     """
 
@@ -67,10 +69,10 @@ class StringCommandHandler(Handler[str, CCT]):
     def __init__(
         self,
         command: str,
-        callback: Callable[[str, CCT], RT],
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        callback: HandlerCallback[str, CCT, RT],
+        block: DVInput[bool] = DEFAULT_TRUE,
     ):
-        super().__init__(callback, block=run_async)
+        super().__init__(callback, block=block)
         self.command = command
 
     def check_update(self, update: object) -> Optional[List[str]]:

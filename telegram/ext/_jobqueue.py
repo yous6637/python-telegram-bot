@@ -27,7 +27,6 @@ from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.job import Job as APSJob
 
-from telegram._utils.asyncio import run_non_blocking
 from telegram._utils.types import JSONDict
 from telegram.ext._extbot import ExtBot
 from telegram.ext._utils.types import JobCallback
@@ -442,7 +441,10 @@ class JobQueue:
         """
         if wait:
             # Unfortunately AsyncIOExecutor just cancels them all ...
-            await asyncio.gather(*self._executor._pending_futures, return_exceptions=True)
+            await asyncio.gather(
+                *self._executor._pending_futures,  # pylint: disable=protected-access
+                return_exceptions=True,
+            )
         if self.scheduler.running:
             self.scheduler.shutdown(wait=wait)
 
@@ -534,10 +536,7 @@ class Job:
         try:
             # We shield the task such that the job isn't cancelled mid-run
             await asyncio.shield(
-                run_non_blocking(
-                    func=self.callback,
-                    args=(dispatcher.context_types.context.from_job(self, dispatcher),),
-                )
+                self.callback(dispatcher.context_types.context.from_job(self, dispatcher))
             )
 
         # TODO: probably run dispatch_error and update_persistence via `run_async` since those
@@ -545,7 +544,7 @@ class Job:
         #   Additionally double check with the Dispatcher.process_update logic on whether we want
         #   to update the persistence if the job failed
         except Exception as exc:
-            await dispatcher.dispatch_error(None, exc, job=self)
+            await dispatcher.create_task(dispatcher.dispatch_error(None, exc, job=self))
         finally:
             dispatcher.update_persistence(None)
 

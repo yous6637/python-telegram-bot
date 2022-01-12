@@ -18,6 +18,7 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 # pylint: disable=no-self-use
 """This module contains the CallbackContext class."""
+import asyncio
 from asyncio import Queue
 from typing import (
     TYPE_CHECKING,
@@ -29,7 +30,6 @@ from typing import (
     Tuple,
     Generic,
     Type,
-    Sequence,
 )
 
 from telegram import Update, CallbackQuery
@@ -120,8 +120,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         'matches',
         'error',
         'job',
-        'async_args',
-        'async_kwargs',
+        'task',
         '__dict__',
     )
 
@@ -135,10 +134,9 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         self._user_id_and_data: Optional[Tuple[int, UD]] = None
         self.args: Optional[List[str]] = None
         self.matches: Optional[List[Match]] = None
-        self.error: Optional[Exception] = None
+        self.error: Optional[BaseException] = None
         self.job: Optional['Job'] = None
-        self.async_args: Optional[Sequence[object]] = None
-        self.async_kwargs: Optional[Dict[str, object]] = None
+        self.task: Optional[asyncio.Task] = None
 
     @property
     def dispatcher(self) -> 'Dispatcher[BT, CCT, UD, CD, BD, JQ, PT]':
@@ -249,11 +247,10 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
     def from_error(
         cls: Type['CCT'],
         update: object,
-        error: Exception,
+        error: BaseException,
         dispatcher: 'Dispatcher[BT, CCT, UD, CD, BD, JQ, PT]',
-        async_args: Sequence[object] = None,
-        async_kwargs: Dict[str, object] = None,
         job: 'Job' = None,
+        task: asyncio.Task = None,
     ) -> 'CCT':
         """
         Constructs an instance of :class:`telegram.ext.CallbackContext` to be passed to the error
@@ -282,8 +279,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         """
         self = cls.from_update(update, dispatcher)
         self.error = error
-        self.async_args = async_args
-        self.async_kwargs = async_kwargs
+        self.task = task
         self.job = job
         return self
 

@@ -17,11 +17,12 @@
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the ChatMemberHandler classes."""
-from typing import ClassVar, TypeVar, Union
+from typing import ClassVar, TypeVar
 
 from telegram import Update
+from telegram._utils.types import DVInput
 from telegram.ext import Handler
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
+from telegram._utils.defaultvalue import DEFAULT_TRUE
 from telegram.ext._utils.types import CCT, HandlerCallback
 
 RT = TypeVar('RT')
@@ -47,15 +48,18 @@ class ChatMemberHandler(Handler[Update, CCT]):
             :attr:`CHAT_MEMBER` or :attr:`ANY_CHAT_MEMBER` to specify if this handler should handle
             only updates with :attr:`telegram.Update.my_chat_member`,
             :attr:`telegram.Update.chat_member` or both. Defaults to :attr:`MY_CHAT_MEMBER`.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
         chat_member_types (:obj:`int`, optional): Specifies if this handler should handle
             only updates with :attr:`telegram.Update.my_chat_member`,
             :attr:`telegram.Update.chat_member` or both.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
 
     """
 
@@ -72,9 +76,9 @@ class ChatMemberHandler(Handler[Update, CCT]):
         self,
         callback: HandlerCallback[Update, CCT, RT],
         chat_member_types: int = MY_CHAT_MEMBER,
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        block: DVInput[bool] = DEFAULT_TRUE,
     ):
-        super().__init__(callback, block=run_async)
+        super().__init__(callback, block=block)
 
         self.chat_member_types = chat_member_types
 

@@ -50,15 +50,15 @@ class Defaults:
             appearing throughout PTB, i.e. if a timezone naive date(time) object is passed
             somewhere, it will be assumed to be in ``tzinfo``. Must be a timezone provided by the
             ``pytz`` module. Defaults to UTC.
-        run_async (:obj:`bool`, optional): Default setting for the ``run_async`` parameter of
+        block (:obj:`bool`, optional): Default setting for the ``block`` parameter of
             handlers and error handlers registered through :meth:`Dispatcher.add_handler` and
-            :meth:`Dispatcher.add_error_handler`. Defaults to :obj:`False`.
+            :meth:`Dispatcher.add_error_handler`. Defaults to :obj:`True`.
     """
 
     __slots__ = (
         '_tzinfo',
         '_disable_web_page_preview',
-        '_run_async',
+        '_block',
         '_quote',
         '_disable_notification',
         '_allow_sending_without_reply',
@@ -73,7 +73,7 @@ class Defaults:
         disable_web_page_preview: bool = None,
         quote: bool = None,
         tzinfo: pytz.BaseTzInfo = pytz.utc,
-        run_async: bool = False,
+        block: bool = True,
         allow_sending_without_reply: bool = None,
     ):
         self._parse_mode = parse_mode
@@ -82,7 +82,7 @@ class Defaults:
         self._allow_sending_without_reply = allow_sending_without_reply
         self._quote = quote
         self._tzinfo = tzinfo
-        self._run_async = run_async
+        self._block = block
 
         # Gather all defaults that actually have a default value
         self._api_defaults = {}
@@ -188,15 +188,15 @@ class Defaults:
         raise AttributeError("You can not assign a new value to tzinfo after initialization.")
 
     @property
-    def run_async(self) -> bool:
+    def block(self) -> bool:
         """:obj:`bool`: Optional. Default setting for the ``block`` parameter of
         handlers and error handlers registered through :meth:`Dispatcher.add_handler` and
         :meth:`Dispatcher.add_error_handler`.
         """
-        return self._run_async
+        return self._block
 
-    @run_async.setter
-    def run_async(self, value: object) -> NoReturn:
+    @block.setter
+    def block(self, value: object) -> NoReturn:
         raise AttributeError("You can not assign a new value to run_async after initialization.")
 
     def __hash__(self) -> int:
@@ -208,7 +208,7 @@ class Defaults:
                 self._allow_sending_without_reply,
                 self._quote,
                 self._tzinfo,
-                self._run_async,
+                self._block,
             )
         )
 

@@ -31,8 +31,9 @@ from typing import (
 )
 
 from telegram import Update
+from telegram._utils.types import DVInput
 from telegram.ext import Handler
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
+from telegram._utils.defaultvalue import DEFAULT_TRUE
 from telegram.ext._utils.types import CCT, HandlerCallback
 
 if TYPE_CHECKING:
@@ -85,8 +86,9 @@ class CallbackQueryHandler(Handler[Update, CCT]):
 
             .. versionchanged:: 13.6
                Added support for arbitrary callback data.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
@@ -95,7 +97,9 @@ class CallbackQueryHandler(Handler[Update, CCT]):
 
             .. versionchanged:: 13.6
                Added support for arbitrary callback data.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
 
     """
 
@@ -105,9 +109,9 @@ class CallbackQueryHandler(Handler[Update, CCT]):
         self,
         callback: HandlerCallback[Update, CCT, RT],
         pattern: Union[str, Pattern, type, Callable[[object], Optional[bool]]] = None,
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        block: DVInput[bool] = DEFAULT_TRUE,
     ):
-        super().__init__(callback, block=run_async)
+        super().__init__(callback, block=block)
 
         if isinstance(pattern, str):
             pattern = re.compile(pattern)

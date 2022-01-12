@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, TypeVar, Union
 
 from telegram import MessageEntity, Update
 from telegram.ext import filters as filters_module, Handler
-from telegram._utils.types import SLT
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
+from telegram._utils.types import SLT, DVInput
+from telegram._utils.defaultvalue import DEFAULT_TRUE
 from telegram.ext._utils.types import CCT, HandlerCallback
 
 if TYPE_CHECKING:
@@ -64,8 +64,9 @@ class CommandHandler(Handler[Update, CCT]):
             :class:`telegram.ext.filters.BaseFilter`. Standard filters can be found in
             :mod:`telegram.ext.filters`. Filters can be combined using bitwise
             operators (& for and, | for or, ~ for not).
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Raises:
         ValueError: when command is too long or has illegal chars.
@@ -77,7 +78,9 @@ class CommandHandler(Handler[Update, CCT]):
         callback (:obj:`callable`): The callback function for this handler.
         filters (:class:`telegram.ext.BaseFilter`): Optional. Only allow updates with these
             Filters.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
     """
 
     __slots__ = ('command', 'filters')
@@ -87,9 +90,9 @@ class CommandHandler(Handler[Update, CCT]):
         command: SLT[str],
         callback: HandlerCallback[Update, CCT, RT],
         filters: filters_module.BaseFilter = None,
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        block: DVInput[bool] = DEFAULT_TRUE,
     ):
-        super().__init__(callback, block=run_async)
+        super().__init__(callback, block=block)
 
         if isinstance(command, str):
             self.command = [command.lower()]
@@ -212,14 +215,17 @@ class PrefixHandler(CommandHandler):
             :class:`telegram.ext.filters.BaseFilter`. Standard filters can be found in
             :mod:`telegram.ext.filters`. Filters can be combined using bitwise
             operators (& for and, | for or, ~ for not).
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
         filters (:class:`telegram.ext.BaseFilter`): Optional. Only allow updates with these
             Filters.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
 
     """
 
@@ -232,7 +238,7 @@ class PrefixHandler(CommandHandler):
         command: SLT[str],
         callback: HandlerCallback[Update, CCT, RT],
         filters: filters_module.BaseFilter = None,
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        block: DVInput[bool] = DEFAULT_TRUE,
     ):
 
         self._prefix: List[str] = []
@@ -243,7 +249,7 @@ class PrefixHandler(CommandHandler):
             'nocommand',
             callback,
             filters=filters,
-            run_async=run_async,
+            block=block,
         )
 
         self.prefix = prefix  # type: ignore[assignment]

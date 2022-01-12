@@ -18,12 +18,13 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the ChosenInlineResultHandler class."""
 import re
-from typing import Optional, TypeVar, Union, Callable, TYPE_CHECKING, Pattern, Match, cast
+from typing import Optional, TypeVar, Union, TYPE_CHECKING, Pattern, Match, cast
 
 from telegram import Update
+from telegram._utils.defaultvalue import DEFAULT_TRUE
+from telegram._utils.types import DVInput
 from telegram.ext import Handler
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
-from telegram.ext._utils.types import CCT
+from telegram.ext._utils.types import CCT, HandlerCallback
 
 RT = TypeVar('RT')
 
@@ -45,8 +46,9 @@ class ChosenInlineResultHandler(Handler[Update, CCT]):
 
             The return value of the callback is usually ignored except for the special case of
             :class:`telegram.ext.ConversationHandler`.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
         pattern (:obj:`str` | `Pattern`, optional): Regex pattern. If not :obj:`None`, ``re.match``
             is used on :attr:`telegram.ChosenInlineResult.result_id` to determine if an update
             should be handled by this handler. This is accessible in the callback as
@@ -56,7 +58,9 @@ class ChosenInlineResultHandler(Handler[Update, CCT]):
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
         pattern (`Pattern`): Optional. Regex pattern to test
             :attr:`telegram.ChosenInlineResult.result_id` against.
 
@@ -68,11 +72,11 @@ class ChosenInlineResultHandler(Handler[Update, CCT]):
 
     def __init__(
         self,
-        callback: Callable[[Update, 'CallbackContext'], RT],
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        callback: HandlerCallback[Update, CCT, RT],
+        block: DVInput[bool] = DEFAULT_TRUE,
         pattern: Union[str, Pattern] = None,
     ):
-        super().__init__(callback, block=run_async)
+        super().__init__(callback, block=block)
 
         if isinstance(pattern, str):
             pattern = re.compile(pattern)

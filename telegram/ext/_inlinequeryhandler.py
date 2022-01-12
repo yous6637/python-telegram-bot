@@ -30,8 +30,9 @@ from typing import (
 )
 
 from telegram import Update
+from telegram._utils.types import DVInput
 from telegram.ext import Handler
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_FALSE
+from telegram._utils.defaultvalue import DEFAULT_TRUE
 from telegram.ext._utils.types import CCT, HandlerCallback
 
 if TYPE_CHECKING:
@@ -66,8 +67,9 @@ class InlineQueryHandler(Handler[Update, CCT]):
             handle inline queries with the appropriate :attr:`telegram.InlineQuery.chat_type`.
 
             .. versionadded:: 13.5
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`False`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
@@ -76,7 +78,9 @@ class InlineQueryHandler(Handler[Update, CCT]):
         chat_types (List[:obj:`str`], optional): List of allowed chat types.
 
             .. versionadded:: 13.5
-        run_async (:obj:`bool`): Determines whether the callback will run asynchronously.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`.
 
     """
 
@@ -86,10 +90,10 @@ class InlineQueryHandler(Handler[Update, CCT]):
         self,
         callback: HandlerCallback[Update, CCT, RT],
         pattern: Union[str, Pattern] = None,
-        run_async: Union[bool, DefaultValue] = DEFAULT_FALSE,
+        block: DVInput[bool] = DEFAULT_TRUE,
         chat_types: List[str] = None,
     ):
-        super().__init__(callback, block=run_async)
+        super().__init__(callback, block=block)
 
         if isinstance(pattern, str):
             pattern = re.compile(pattern)

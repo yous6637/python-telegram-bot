@@ -20,8 +20,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, Generic
 
-from telegram._utils.asyncio import run_non_blocking
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_TRUE
+from telegram._utils.defaultvalue import DEFAULT_TRUE
+from telegram._utils.types import DVInput
 from telegram.ext._utils.types import CCT, HandlerCallback
 
 if TYPE_CHECKING:
@@ -45,8 +45,9 @@ class Handler(Generic[UT, CCT], ABC):
 
             The return value of the callback is usually ignored except for the special case of
             :class:`telegram.ext.ConversationHandler`.
-        block (:obj:`bool`): Determines whether the callback will run asynchronously.
-            Defaults to :obj:`True`.
+        block (:obj:`bool`): Determines whether the return value of the callback should be
+            awaited before processing the next handler in
+            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
@@ -62,7 +63,7 @@ class Handler(Generic[UT, CCT], ABC):
     def __init__(
         self,
         callback: HandlerCallback[UT, CCT, RT],
-        block: Union[bool, DefaultValue] = DEFAULT_TRUE,
+        block: DVInput[bool] = DEFAULT_TRUE,
     ):
         self.callback = callback
         self.block = block
@@ -110,11 +111,7 @@ class Handler(Generic[UT, CCT], ABC):
 
         """
         self.collect_additional_context(context, update, dispatcher, check_result)
-
-        return await run_non_blocking(
-            func=self.callback,
-            args=(update, context),
-        )
+        return await self.callback(update, context)
 
     def collect_additional_context(
         self,
