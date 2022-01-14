@@ -6,7 +6,7 @@
 
 This Bot uses the Updater class to handle the bot.
 First, a few callback functions are defined as callback query handler. Then, those functions are
-passed to the Dispatcher and registered at their respective places.
+passed to the Application and registered at their respective places.
 Then, the bot is started and runs until we press Ctrl-C on the command line.
 Usage:
 Example of a bot that uses inline keyboard that has multiple CallbackQueryHandlers arranged in a
@@ -164,8 +164,8 @@ def main() -> None:
     # Create the Updater and pass it your bot's token.
     updater = Updater.builder().token("TOKEN").build()
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Get the application to register handlers
+    application = updater.application
 
     # Setup conversation handler with the states FIRST and SECOND
     # Use the pattern parameter to pass CallbackQueries with specific
@@ -190,8 +190,8 @@ def main() -> None:
         fallbacks=[CommandHandler('start', start)],
     )
 
-    # Add ConversationHandler to dispatcher that will be used for handling updates
-    dispatcher.add_handler(conv_handler)
+    # Add ConversationHandler to application that will be used for handling updates
+    application.add_handler(conv_handler)
 
     # Start the Bot
     updater.start_polling()

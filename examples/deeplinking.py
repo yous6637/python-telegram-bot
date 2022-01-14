@@ -9,7 +9,7 @@ This program is dedicated to the public domain under the CC0 license.
 This Bot uses the Updater class to handle the bot.
 
 First, a few handler functions are defined. Then, those functions are passed to
-the Dispatcher and registered at their respective places.
+the Application and registered at their respective places.
 Then, the bot is started and runs until we press Ctrl-C on the command line.
 
 Usage:
@@ -107,37 +107,37 @@ def main() -> None:
     # Create the Updater and pass it your bot's token.
     updater = Updater.builder().token("TOKEN").build()
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Get the application to register handlers
+    application = updater.application
 
     # More info on what deep linking actually is (read this first if it's unclear to you):
     # https://core.telegram.org/bots#deep-linking
 
     # Register a deep-linking handler
-    dispatcher.add_handler(
+    application.add_handler(
         CommandHandler("start", deep_linked_level_1, filters.Regex(CHECK_THIS_OUT))
     )
 
     # This one works with a textual link instead of an URL
-    dispatcher.add_handler(CommandHandler("start", deep_linked_level_2, filters.Regex(SO_COOL)))
+    application.add_handler(CommandHandler("start", deep_linked_level_2, filters.Regex(SO_COOL)))
 
     # We can also pass on the deep-linking payload
-    dispatcher.add_handler(
+    application.add_handler(
         CommandHandler("start", deep_linked_level_3, filters.Regex(USING_ENTITIES))
     )
 
     # Possible with inline keyboard buttons as well
-    dispatcher.add_handler(
+    application.add_handler(
         CommandHandler("start", deep_linked_level_4, filters.Regex(USING_KEYBOARD))
     )
 
     # register callback handler for inline keyboard button
-    dispatcher.add_handler(
+    application.add_handler(
         CallbackQueryHandler(deep_link_level_3_callback, pattern=KEYBOARD_CALLBACKDATA)
     )
 
     # Make sure the deep-linking handlers occur *before* the normal /start handler.
-    dispatcher.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("start", start))
 
     # Start the Bot
     updater.start_polling()

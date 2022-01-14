@@ -106,11 +106,11 @@ def main() -> None:
     private_key = Path('private.key')
     updater = Updater.builder().token("TOKEN").private_key(private_key.read_bytes()).build()
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Get the application to register handlers
+    application = updater.application
 
     # On messages that include passport data call msg
-    dispatcher.add_handler(MessageHandler(filters.PASSPORT_DATA, msg))
+    application.add_handler(MessageHandler(filters.PASSPORT_DATA, msg))
 
     # Start the Bot
     updater.start_polling()

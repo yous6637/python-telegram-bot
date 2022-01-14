@@ -143,15 +143,15 @@ def main() -> None:
     # Create the Updater and pass it your bot's token.
     updater = Updater.builder().token("TOKEN").build()
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Get the application to register handlers
+    application = updater.application
 
     # Keep track of which chats the bot is in
-    dispatcher.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.MY_CHAT_MEMBER))
-    dispatcher.add_handler(CommandHandler("show_chats", show_chats))
+    application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.MY_CHAT_MEMBER))
+    application.add_handler(CommandHandler("show_chats", show_chats))
 
     # Handle members joining/leaving chats.
-    dispatcher.add_handler(ChatMemberHandler(greet_chat_members, ChatMemberHandler.CHAT_MEMBER))
+    application.add_handler(ChatMemberHandler(greet_chat_members, ChatMemberHandler.CHAT_MEMBER))
 
     # Start the Bot
     # We pass 'allowed_updates' handle *all* updates including `chat_member` updates

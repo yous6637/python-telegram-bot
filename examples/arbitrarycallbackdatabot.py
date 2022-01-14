@@ -96,13 +96,13 @@ def main() -> None:
         .build()
     )
 
-    updater.dispatcher.add_handler(CommandHandler('start', start))
-    updater.dispatcher.add_handler(CommandHandler('help', help_command))
-    updater.dispatcher.add_handler(CommandHandler('clear', clear))
-    updater.dispatcher.add_handler(
+    updater.application.add_handler(CommandHandler('start', start))
+    updater.application.add_handler(CommandHandler('help', help_command))
+    updater.application.add_handler(CommandHandler('clear', clear))
+    updater.application.add_handler(
         CallbackQueryHandler(handle_invalid_button, pattern=InvalidCallbackData)
     )
-    updater.dispatcher.add_handler(CallbackQueryHandler(list_button))
+    updater.application.add_handler(CallbackQueryHandler(list_button))
 
     # Start the Bot
     updater.start_polling()

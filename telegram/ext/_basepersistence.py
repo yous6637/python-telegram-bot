@@ -399,7 +399,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def get_user_data(self) -> DefaultDict[int, UD]:
-        """Will be called by :class:`telegram.ext.Dispatcher` upon creation with a
+        """Will be called by :class:`telegram.ext.Application` upon creation with a
         persistence object. It should return the ``user_data`` if stored, or an empty
         :obj:`defaultdict`. In the latter case, the :obj:`defaultdict` should produce values
         corresponding to one of the following:
@@ -415,7 +415,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def get_chat_data(self) -> DefaultDict[int, CD]:
-        """Will be called by :class:`telegram.ext.Dispatcher` upon creation with a
+        """Will be called by :class:`telegram.ext.Application` upon creation with a
         persistence object. It should return the ``chat_data`` if stored, or an empty
         :obj:`defaultdict`. In the latter case, the :obj:`defaultdict` should produce values
         corresponding to one of the following:
@@ -431,7 +431,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def get_bot_data(self) -> BD:
-        """Will be called by :class:`telegram.ext.Dispatcher` upon creation with a
+        """Will be called by :class:`telegram.ext.Application` upon creation with a
         persistence object. It should return the ``bot_data`` if stored, or an empty
         :obj:`defaultdict`. In the latter case, the :obj:`defaultdict` should produce values
         corresponding to one of the following:
@@ -447,7 +447,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def get_callback_data(self) -> Optional[CDCData]:
-        """Will be called by :class:`telegram.ext.Dispatcher` upon creation with a
+        """Will be called by :class:`telegram.ext.Application` upon creation with a
         persistence object. If callback data was stored, it should be returned.
 
         .. versionadded:: 13.6
@@ -463,7 +463,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def get_conversations(self, name: str) -> ConversationDict:
-        """Will be called by :class:`telegram.ext.Dispatcher` when a
+        """Will be called by :class:`telegram.ext.Application` when a
         :class:`telegram.ext.ConversationHandler` is added if
         :attr:`telegram.ext.ConversationHandler.persistent` is :obj:`True`.
         It should return the conversations for the handler with `name` or an empty :obj:`dict`
@@ -490,39 +490,39 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def update_user_data(self, user_id: int, data: UD) -> None:
-        """Will be called by the :class:`telegram.ext.Dispatcher` after a handler has
+        """Will be called by the :class:`telegram.ext.Application` after a handler has
         handled an update.
 
         Args:
             user_id (:obj:`int`): The user the data might have been changed for.
             data (:obj:`dict` | :attr:`telegram.ext.ContextTypes.user_data`):
-                The :attr:`telegram.ext.Dispatcher.user_data` ``[user_id]``.
+                The :attr:`telegram.ext.Application.user_data` ``[user_id]``.
         """
 
     @abstractmethod
     def update_chat_data(self, chat_id: int, data: CD) -> None:
-        """Will be called by the :class:`telegram.ext.Dispatcher` after a handler has
+        """Will be called by the :class:`telegram.ext.Application` after a handler has
         handled an update.
 
         Args:
             chat_id (:obj:`int`): The chat the data might have been changed for.
             data (:obj:`dict` | :attr:`telegram.ext.ContextTypes.chat_data`):
-                The :attr:`telegram.ext.Dispatcher.chat_data` ``[chat_id]``.
+                The :attr:`telegram.ext.Application.chat_data` ``[chat_id]``.
         """
 
     @abstractmethod
     def update_bot_data(self, data: BD) -> None:
-        """Will be called by the :class:`telegram.ext.Dispatcher` after a handler has
+        """Will be called by the :class:`telegram.ext.Application` after a handler has
         handled an update.
 
         Args:
             data (:obj:`dict` | :attr:`telegram.ext.ContextTypes.bot_data`):
-                The :attr:`telegram.ext.Dispatcher.bot_data`.
+                The :attr:`telegram.ext.Application.bot_data`.
         """
 
     @abstractmethod
     def refresh_user_data(self, user_id: int, user_data: UD) -> None:
-        """Will be called by the :class:`telegram.ext.Dispatcher` before passing the
+        """Will be called by the :class:`telegram.ext.Application` before passing the
         :attr:`user_data` to a callback. Can be used to update data stored in :attr:`user_data`
         from an external source.
 
@@ -539,7 +539,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def refresh_chat_data(self, chat_id: int, chat_data: CD) -> None:
-        """Will be called by the :class:`telegram.ext.Dispatcher` before passing the
+        """Will be called by the :class:`telegram.ext.Application` before passing the
         :attr:`chat_data` to a callback. Can be used to update data stored in :attr:`chat_data`
         from an external source.
 
@@ -556,7 +556,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def refresh_bot_data(self, bot_data: BD) -> None:
-        """Will be called by the :class:`telegram.ext.Dispatcher` before passing the
+        """Will be called by the :class:`telegram.ext.Application` before passing the
         :attr:`bot_data` to a callback. Can be used to update data stored in :attr:`bot_data`
         from an external source.
 
@@ -572,7 +572,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
 
     @abstractmethod
     def update_callback_data(self, data: CDCData) -> None:
-        """Will be called by the :class:`telegram.ext.Dispatcher` after a handler has
+        """Will be called by the :class:`telegram.ext.Application` after a handler has
         handled an update.
 
         .. versionadded:: 13.6

@@ -156,15 +156,15 @@ def main() -> None:
     """Run bot."""
     # Create the Updater and pass it your bot's token.
     updater = Updater.builder().token("TOKEN").build()
-    dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler('start', start))
-    dispatcher.add_handler(CommandHandler('poll', poll))
-    dispatcher.add_handler(PollAnswerHandler(receive_poll_answer))
-    dispatcher.add_handler(CommandHandler('quiz', quiz))
-    dispatcher.add_handler(PollHandler(receive_quiz_answer))
-    dispatcher.add_handler(CommandHandler('preview', preview))
-    dispatcher.add_handler(MessageHandler(filters.POLL, receive_poll))
-    dispatcher.add_handler(CommandHandler('help', help_handler))
+    application = updater.application
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(CommandHandler('poll', poll))
+    application.add_handler(PollAnswerHandler(receive_poll_answer))
+    application.add_handler(CommandHandler('quiz', quiz))
+    application.add_handler(PollHandler(receive_quiz_answer))
+    application.add_handler(CommandHandler('preview', preview))
+    application.add_handler(MessageHandler(filters.POLL, receive_poll))
+    application.add_handler(CommandHandler('help', help_handler))
 
     # Start the Bot
     updater.start_polling()

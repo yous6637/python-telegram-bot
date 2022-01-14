@@ -27,7 +27,7 @@ from telegram._utils.defaultvalue import DEFAULT_TRUE
 from telegram.ext._utils.types import CCT, HandlerCallback
 
 if TYPE_CHECKING:
-    from telegram.ext import Dispatcher
+    from telegram.ext import Application
 
 RT = TypeVar('RT')
 
@@ -56,7 +56,7 @@ class MessageHandler(Handler[Update, CCT]):
             :class:`telegram.ext.ConversationHandler`.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
+            :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Raises:
         ValueError
@@ -67,7 +67,7 @@ class MessageHandler(Handler[Update, CCT]):
         callback (:obj:`callable`): The callback function for this handler.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`.
+            :meth:`telegram.ext.Application.process_update`.
 
     """
 
@@ -101,7 +101,7 @@ class MessageHandler(Handler[Update, CCT]):
         self,
         context: CCT,
         update: Update,
-        dispatcher: 'Dispatcher',
+        application: 'Application',
         check_result: Optional[Union[bool, Dict[str, object]]],
     ) -> None:
         """Adds possible output of data filters to the :class:`CallbackContext`."""

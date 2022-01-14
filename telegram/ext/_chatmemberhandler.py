@@ -50,7 +50,7 @@ class ChatMemberHandler(Handler[Update, CCT]):
             :attr:`telegram.Update.chat_member` or both. Defaults to :attr:`MY_CHAT_MEMBER`.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
+            :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.
@@ -59,7 +59,7 @@ class ChatMemberHandler(Handler[Update, CCT]):
             :attr:`telegram.Update.chat_member` or both.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`.
+            :meth:`telegram.ext.Application.process_update`.
 
     """
 

@@ -55,10 +55,10 @@ from telegram import (
 from telegram._utils.types import ODVInput
 from telegram.constants import InputMediaType
 from telegram.ext import (
-    Dispatcher,
+    Application,
     Defaults,
     ExtBot,
-    DispatcherBuilder,
+    ApplicationBuilder,
     UpdaterBuilder,
 )
 from telegram.ext.filters import UpdateFilter, MessageFilter
@@ -151,7 +151,7 @@ class DictBot(Bot):
     pass
 
 
-class DictDispatcher(Dispatcher):
+class DictApplication(Application):
     pass
 
 
@@ -210,40 +210,42 @@ def provider_token(bot_info):
 
 
 def create_dp(bot):
-    # Dispatcher is heavy to init (due to many threads and such) so we have a single session
-    # scoped one here, but before each test, reset it (dp fixture below)
-    dispatcher = DispatcherBuilder().bot(bot).workers(2).dispatcher_class(DictDispatcher).build()
-    thr = Thread(target=dispatcher.start)
+    # Application is heavy to init (due to many threads and such) so we have a single session
+    # scoped one here, but before each test, reset it (app fixture below)
+    application = (
+        ApplicationBuilder().bot(bot).workers(2).application_class(DictApplication).build()
+    )
+    thr = Thread(target=application.start)
     thr.start()
     sleep(2)
-    yield dispatcher
+    yield application
     sleep(1)
-    if dispatcher.running:
-        dispatcher.stop()
+    if application.running:
+        application.stop()
     thr.join()
 
 
 @pytest.fixture(scope='session')
-def _dp(bot):
+def _app(bot):
     yield from create_dp(bot)
 
 
 @pytest.fixture(scope='function')
-def dp(_dp):
-    # Reset the dispatcher first
-    while not _dp.update_queue.empty():
-        _dp.update_queue.get(False)
-    _dp.chat_data = defaultdict(dict)
-    _dp.user_data = defaultdict(dict)
-    _dp.bot_data = {}
-    _dp.persistence = None
-    _dp.handlers = {}
-    _dp.error_handlers = {}
-    _dp.__stop_event = Event()
-    _dp.__async_queue = Queue()
-    _dp.__async_threads = set()
-    _dp.persistence = None
-    yield _dp
+def app(_app):
+    # Reset the application first
+    while not _app.update_queue.empty():
+        _app.update_queue.get(False)
+    _app.chat_data = defaultdict(dict)
+    _app.user_data = defaultdict(dict)
+    _app.bot_data = {}
+    _app.persistence = None
+    _app.handlers = {}
+    _app.error_handlers = {}
+    _app.__stop_event = Event()
+    _app.__async_queue = Queue()
+    _app.__async_threads = set()
+    _app.persistence = None
+    yield _app
 
 
 @pytest.fixture(scope='function')

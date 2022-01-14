@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
-"""This module contains the Dispatcher class."""
+"""This module contains the Application class."""
 import asyncio
 import inspect
 import logging
@@ -55,19 +55,19 @@ from telegram.ext._utils.stack import was_called_by
 
 if TYPE_CHECKING:
     from telegram.ext._jobqueue import Job
-    from telegram.ext._builders import InitDispatcherBuilder
+    from telegram.ext._builders import InitApplicationBuilder
 
 DEFAULT_GROUP: int = 0
 
 _UT = TypeVar('_UT')
-_DispType = TypeVar('_DispType', bound="Dispatcher")
+_DispType = TypeVar('_DispType', bound="Application")
 _RT = TypeVar('_RT')
 _STOP_SIGNAL = object()
 
 _logger = logging.getLogger(__name__)
 
 
-class DispatcherHandlerStop(Exception):
+class ApplicationHandlerStop(Exception):
     """
     Raise this in a handler or an error handler to prevent execution of any other handler (even in
     different group).
@@ -79,7 +79,7 @@ class DispatcherHandlerStop(Exception):
 
         def callback(update, context):
             ...
-            raise DispatcherHandlerStop(next_state)
+            raise ApplicationHandlerStop(next_state)
 
     Note:
         Has no effect, if the handler or error handler is run asynchronously.
@@ -98,16 +98,16 @@ class DispatcherHandlerStop(Exception):
         self.state = state
 
 
-class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
+class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
     """This class dispatches all kinds of updates to its registered handlers.
 
     Note:
-         This class may not be initialized directly. Use :class:`telegram.ext.DispatcherBuilder` or
-         :meth:`builder` (for convenience).
+         This class may not be initialized directly. Use :class:`telegram.ext.ApplicationBuilder`
+         or :meth:`builder` (for convenience).
 
     .. versionchanged:: 14.0
 
-        * Initialization is now done through the :class:`telegram.ext.DispatcherBuilder`.
+        * Initialization is now done through the :class:`telegram.ext.ApplicationBuilder`.
         * Removed the attribute ``groups``.
 
     Attributes:
@@ -159,7 +159,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
     )
 
     def __init__(
-        self: 'Dispatcher[BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'Application[BT, CCT, UD, CD, BD, JQ, PT]',
         *,
         bot: BT,
         update_queue: asyncio.Queue,
@@ -172,7 +172,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             inspect.currentframe(), Path(__file__).parent.resolve() / '_builders.py'
         ):
             warn(
-                '`Dispatcher` instances should be built via the `DispatcherBuilder`.',
+                '`Application` instances should be built via the `ApplicationBuilder`.',
                 stacklevel=2,
             )
 
@@ -190,7 +190,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         self._concurrent_updates = bool(concurrent_updates)
 
         if self.job_queue:
-            self.job_queue.set_dispatcher(self)
+            self.job_queue.set_application(self)
 
         self.user_data: DefaultDict[int, UD] = defaultdict(self.context_types.user_data)
         self.chat_data: DefaultDict[int, CD] = defaultdict(self.context_types.chat_data)
@@ -209,7 +209,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
     @property
     def running(self) -> bool:
-        """:obj:`bool`: Indicates if this dispatcher is running.
+        """:obj:`bool`: Indicates if this application is running.
 
         .. seealso::
             :meth:`start`, :meth:`stop`
@@ -284,24 +284,24 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                 )
 
     @staticmethod
-    def builder() -> 'InitDispatcherBuilder':
-        """Convenience method. Returns a new :class:`telegram.ext.DispatcherBuilder`.
+    def builder() -> 'InitApplicationBuilder':
+        """Convenience method. Returns a new :class:`telegram.ext.ApplicationBuilder`.
 
         .. versionadded:: 14.0
         """
         # Unfortunately this needs to be here due to cyclical imports
-        from telegram.ext import DispatcherBuilder  # pylint: disable=import-outside-toplevel
+        from telegram.ext import ApplicationBuilder  # pylint: disable=import-outside-toplevel
 
-        return DispatcherBuilder()
+        return ApplicationBuilder()
 
     def start(self, ready: Event = None) -> None:
-        """Thread target of thread 'dispatcher'.
+        """Thread target of thread 'application'.
 
         Runs in background and processes the update queue. Also starts :attr:`job_queue`, if set.
 
         Args:
             ready (:obj:`asyncio.Event`, optional): If specified, the event will be set once the
-                dispatcher is ready.
+                application is ready.
 
         """
         if self.running:
@@ -311,10 +311,10 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             return
 
         self.__update_fetcher_task = asyncio.create_task(
-            self._update_fetcher(), name=f'Dispatcher:{self.bot.id}:update_fetcher'
+            self._update_fetcher(), name=f'Application:{self.bot.id}:update_fetcher'
         )
         self._running = True
-        _logger.debug('Dispatcher started')
+        _logger.debug('Application started')
 
         if self.job_queue:
             self.job_queue.start()
@@ -341,7 +341,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             await self.update_queue.join()
             if self.__update_fetcher_task:
                 await self.__update_fetcher_task
-            _logger.debug("Dispatcher stopped fetching of updates.")
+            _logger.debug("Application stopped fetching of updates.")
 
             _logger.debug('Waiting for `create_task` calls to be processed')
             await asyncio.gather(*self.__create_task_tasks, return_exceptions=True)
@@ -402,9 +402,9 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         try:
             return await coroutine
         except Exception as exception:
-            if isinstance(exception, DispatcherHandlerStop):
+            if isinstance(exception, ApplicationHandlerStop):
                 warn(
-                    'DispatcherHandlerStop is not supported with asynchronously running handlers.'
+                    'ApplicationHandlerStop is not supported with asynchronously running handlers.'
                 )
 
             # Avoid infinite recursion of error handlers.
@@ -417,7 +417,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
             else:
                 # If we arrive here, an exception happened in the task and was neither
-                # DispatcherHandlerStop nor raised by an error handler.
+                # ApplicationHandlerStop nor raised by an error handler.
                 # So we can and must handle it
                 self.create_task(self.dispatch_error(update, exception, coroutine=coroutine))
 
@@ -489,8 +489,8 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                         break
 
             # Stop processing with any other handler.
-            except DispatcherHandlerStop:
-                _logger.debug('Stopping further handlers due to DispatcherHandlerStop')
+            except ApplicationHandlerStop:
+                _logger.debug('Stopping further handlers due to ApplicationHandlerStop')
                 break
 
             # Dispatch any error.
@@ -503,12 +503,12 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         """Register a handler.
 
         TL;DR: Order and priority counts. 0 or 1 handlers per group will be used. End handling of
-        update with :class:`telegram.ext.DispatcherHandlerStop`.
+        update with :class:`telegram.ext.ApplicationHandlerStop`.
 
         A handler must be an instance of a subclass of :class:`telegram.ext.Handler`. All handlers
         are organized in groups with a numeric value. The default group is 0. All groups will be
         evaluated for handling an update, but only 0 or 1 handler per group will be used. If
-        :class:`telegram.ext.DispatcherHandlerStop` is raised from one of the handlers, no further
+        :class:`telegram.ext.ApplicationHandlerStop` is raised from one of the handlers, no further
         handlers (regardless of the group) will be called.
 
         The priority/order of handlers is determined as follows:
@@ -542,7 +542,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             if not self.persistence:
                 raise ValueError(
                     f"ConversationHandler {handler.name} "  # type: ignore[attr-defined]
-                    f"can not be persistent if dispatcher has no persistence"
+                    f"can not be persistent if application has no persistence"
                 )
             handler.persistence = self.persistence  # type: ignore[attr-defined]
             handler.conversations = (  # type: ignore[attr-defined]
@@ -670,7 +670,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         callback: HandlerCallback[object, CCT, None],
         block: DVInput[bool] = DEFAULT_TRUE,
     ) -> None:
-        """Registers an error handler in the Dispatcher. This handler will receive every error
+        """Registers an error handler in the Application. This handler will receive every error
         which happens in your bot. See the docs of :meth:`dispatch_error` for more details on how
         errors are handled.
 
@@ -718,14 +718,14 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
     ) -> bool:
         """Dispatches an error by passing it to all error handlers registered with
         :meth:`add_error_handler`. If one of the error handlers raises
-        :class:`telegram.ext.DispatcherHandlerStop`, the update will not be handled by other error
+        :class:`telegram.ext.ApplicationHandlerStop`, the update will not be handled by other error
         handlers or handlers (even in other groups). All other exceptions raised by an error
         handler will just be logged.
 
         .. versionchanged:: 14.0
 
             * Exceptions raised by error handlers are now properly logged.
-            * :class:`telegram.ext.DispatcherHandlerStop` is no longer reraised but converted into
+            * :class:`telegram.ext.ApplicationHandlerStop` is no longer reraised but converted into
               the return value.
 
         Args:
@@ -737,7 +737,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
         Returns:
             :obj:`bool`: :obj:`True` if one of the error handlers raised
-                :class:`telegram.ext.DispatcherHandlerStop`. :obj:`False`, otherwise.
+                :class:`telegram.ext.ApplicationHandlerStop`. :obj:`False`, otherwise.
         """
 
         if self.error_handlers:
@@ -748,7 +748,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                 context = self.context_types.context.from_error(
                     update=update,
                     error=error,
-                    dispatcher=self,
+                    application=self,
                     job=job,
                     coroutine=coroutine,
                 )
@@ -759,7 +759,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                 else:
                     try:
                         await callback(update, context)
-                    except DispatcherHandlerStop:
+                    except ApplicationHandlerStop:
                         return True
                     except Exception as exc:
                         _logger.exception(

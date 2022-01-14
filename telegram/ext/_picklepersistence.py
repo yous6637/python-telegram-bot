@@ -324,7 +324,7 @@ class PicklePersistence(BasePersistence[UD, CD, BD]):
         Args:
             user_id (:obj:`int`): The user the data might have been changed for.
             data (:obj:`dict` | :attr:`telegram.ext.ContextTypes.user_data`): The
-                :attr:`telegram.ext.Dispatcher.user_data` ``[user_id]``.
+                :attr:`telegram.ext.Application.user_data` ``[user_id]``.
         """
         if self.user_data is None:
             self.user_data = defaultdict(self.context_types.user_data)
@@ -343,7 +343,7 @@ class PicklePersistence(BasePersistence[UD, CD, BD]):
         Args:
             chat_id (:obj:`int`): The chat the data might have been changed for.
             data (:obj:`dict` | :attr:`telegram.ext.ContextTypes.chat_data`): The
-                :attr:`telegram.ext.Dispatcher.chat_data` ``[chat_id]``.
+                :attr:`telegram.ext.Application.chat_data` ``[chat_id]``.
         """
         if self.chat_data is None:
             self.chat_data = defaultdict(self.context_types.chat_data)
@@ -361,7 +361,7 @@ class PicklePersistence(BasePersistence[UD, CD, BD]):
 
         Args:
             data (:obj:`dict` | :attr:`telegram.ext.ContextTypes.bot_data`): The
-                :attr:`telegram.ext.Dispatcher.bot_data`.
+                :attr:`telegram.ext.Application.bot_data`.
         """
         if self.bot_data == data:
             return

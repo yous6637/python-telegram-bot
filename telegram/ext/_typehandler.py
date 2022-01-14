@@ -49,7 +49,7 @@ class TypeHandler(Handler[UT, CCT]):
             Default is :obj:`False`
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
+            :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         type (:obj:`type`): The ``type`` of updates this handler should process.
@@ -57,7 +57,7 @@ class TypeHandler(Handler[UT, CCT]):
         strict (:obj:`bool`): Use ``type`` instead of ``isinstance``. Default is :obj:`False`.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`.
+            :meth:`telegram.ext.Application.process_update`.
 
     """
 

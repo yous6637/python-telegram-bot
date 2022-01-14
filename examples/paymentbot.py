@@ -132,24 +132,26 @@ def main() -> None:
     # Create the Updater and pass it your bot's token.
     updater = Updater.builder().token("TOKEN").build()
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Get the application to register handlers
+    application = updater.application
 
     # simple start function
-    dispatcher.add_handler(CommandHandler("start", start_callback))
+    application.add_handler(CommandHandler("start", start_callback))
 
     # Add command handler to start the payment invoice
-    dispatcher.add_handler(CommandHandler("shipping", start_with_shipping_callback))
-    dispatcher.add_handler(CommandHandler("noshipping", start_without_shipping_callback))
+    application.add_handler(CommandHandler("shipping", start_with_shipping_callback))
+    application.add_handler(CommandHandler("noshipping", start_without_shipping_callback))
 
     # Optional handler if your product requires shipping
-    dispatcher.add_handler(ShippingQueryHandler(shipping_callback))
+    application.add_handler(ShippingQueryHandler(shipping_callback))
 
     # Pre-checkout handler to final check
-    dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+    application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
 
     # Success! Notify your user!
-    dispatcher.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
+    application.add_handler(
+        MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback)
+    )
 
     # Start the Bot
     updater.start_polling()

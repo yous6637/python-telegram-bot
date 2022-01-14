@@ -27,7 +27,7 @@ from telegram.ext._utils.types import CCT, HandlerCallback
 from telegram._utils.defaultvalue import DEFAULT_TRUE
 
 if TYPE_CHECKING:
-    from telegram.ext import Dispatcher
+    from telegram.ext import Application
 
 RT = TypeVar('RT')
 
@@ -56,14 +56,14 @@ class StringRegexHandler(Handler[str, CCT]):
             :class:`telegram.ext.ConversationHandler`.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
+            :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         pattern (:obj:`str` | :obj:`Pattern`): The regex pattern.
         callback (:obj:`callable`): The callback function for this handler.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`.
+            :meth:`telegram.ext.Application.process_update`.
 
     """
 
@@ -102,7 +102,7 @@ class StringRegexHandler(Handler[str, CCT]):
         self,
         context: CCT,
         update: str,
-        dispatcher: 'Dispatcher',
+        application: 'Application',
         check_result: Optional[Match],
     ) -> None:
         """Add the result of ``re.match(pattern, update)`` to :attr:`CallbackContext.matches` as

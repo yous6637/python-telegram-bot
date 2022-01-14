@@ -45,7 +45,7 @@ class ChatJoinRequestHandler(Handler[Update, CCT]):
             :class:`telegram.ext.ConversationHandler`.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
+            :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:
         callback (:obj:`callable`): The callback function for this handler.

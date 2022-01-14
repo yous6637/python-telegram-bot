@@ -4,7 +4,7 @@
 
 """
 First, a few callback functions are defined. Then, those functions are passed to
-the Dispatcher and registered at their respective places.
+the Application and registered at their respective places.
 Then, the bot is started and runs until we press Ctrl-C on the command line.
 
 Usage:
@@ -135,8 +135,8 @@ def main() -> None:
     persistence = PicklePersistence(filepath='conversationbot')
     updater = Updater.builder().token("TOKEN").persistence(persistence).build()
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Get the application to register handlers
+    application = updater.application
 
     # Add conversation handler with the states CHOOSING, TYPING_CHOICE and TYPING_REPLY
     conv_handler = ConversationHandler(
@@ -165,10 +165,10 @@ def main() -> None:
         persistent=True,
     )
 
-    dispatcher.add_handler(conv_handler)
+    application.add_handler(conv_handler)
 
     show_data_handler = CommandHandler('show_data', show_data)
-    dispatcher.add_handler(show_data_handler)
+    application.add_handler(show_data_handler)
 
     # Start the Bot
     updater.start_polling()

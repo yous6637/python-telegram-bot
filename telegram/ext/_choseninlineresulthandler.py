@@ -29,7 +29,7 @@ from telegram.ext._utils.types import CCT, HandlerCallback
 RT = TypeVar('RT')
 
 if TYPE_CHECKING:
-    from telegram.ext import CallbackContext, Dispatcher
+    from telegram.ext import CallbackContext, Application
 
 
 class ChosenInlineResultHandler(Handler[Update, CCT]):
@@ -48,7 +48,7 @@ class ChosenInlineResultHandler(Handler[Update, CCT]):
             :class:`telegram.ext.ConversationHandler`.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`. Defaults to :obj:`True`.
+            :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
         pattern (:obj:`str` | `Pattern`, optional): Regex pattern. If not :obj:`None`, ``re.match``
             is used on :attr:`telegram.ChosenInlineResult.result_id` to determine if an update
             should be handled by this handler. This is accessible in the callback as
@@ -60,7 +60,7 @@ class ChosenInlineResultHandler(Handler[Update, CCT]):
         callback (:obj:`callable`): The callback function for this handler.
         block (:obj:`bool`): Determines whether the return value of the callback should be
             awaited before processing the next handler in
-            :meth:`telegram.ext.Dispatcher.process_update`.
+            :meth:`telegram.ext.Application.process_update`.
         pattern (`Pattern`): Optional. Regex pattern to test
             :attr:`telegram.ChosenInlineResult.result_id` against.
 
@@ -106,7 +106,7 @@ class ChosenInlineResultHandler(Handler[Update, CCT]):
         self,
         context: 'CallbackContext',
         update: Update,
-        dispatcher: 'Dispatcher',
+        application: 'Application',
         check_result: Union[bool, Match],
     ) -> None:
         """This function adds the matched regex pattern result to

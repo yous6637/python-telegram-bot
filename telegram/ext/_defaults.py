@@ -31,7 +31,7 @@ class Defaults:
     .. versionchanged:: 14.0
         Removed the argument and attribute ``timeout``. Specify default timeout behavior for the
         networking backend directly via :class:`telegram.ext.UpdaterBuilder` or
-        :class:`telegram.ext.DispatcherBuilder` instead.
+        :class:`telegram.ext.ApplicationBuilder` instead.
 
 
     Parameters:
@@ -51,8 +51,8 @@ class Defaults:
             somewhere, it will be assumed to be in ``tzinfo``. Must be a timezone provided by the
             ``pytz`` module. Defaults to UTC.
         block (:obj:`bool`, optional): Default setting for the ``block`` parameter of
-            handlers and error handlers registered through :meth:`Dispatcher.add_handler` and
-            :meth:`Dispatcher.add_error_handler`. Defaults to :obj:`True`.
+            handlers and error handlers registered through :meth:`Application.add_handler` and
+            :meth:`Application.add_error_handler`. Defaults to :obj:`True`.
     """
 
     __slots__ = (
@@ -190,8 +190,8 @@ class Defaults:
     @property
     def block(self) -> bool:
         """:obj:`bool`: Optional. Default setting for the ``block`` parameter of
-        handlers and error handlers registered through :meth:`Dispatcher.add_handler` and
-        :meth:`Dispatcher.add_error_handler`.
+        handlers and error handlers registered through :meth:`Application.add_handler` and
+        :meth:`Application.add_error_handler`.
         """
         return self._block
 

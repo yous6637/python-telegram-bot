@@ -21,7 +21,7 @@ from telegram.ext import (
     ContextTypes,
     CallbackQueryHandler,
     TypeHandler,
-    Dispatcher,
+    Application,
     ExtBot,
     Updater,
 )
@@ -38,8 +38,8 @@ class ChatData:
 class CustomContext(CallbackContext[ExtBot, dict, ChatData, dict]):
     """Custom class for context."""
 
-    def __init__(self, dispatcher: Dispatcher):
-        super().__init__(dispatcher=dispatcher)
+    def __init__(self, application: Application):
+        super().__init__(application=application)
         self._message_id: Optional[int] = None
 
     @property
@@ -62,10 +62,10 @@ class CustomContext(CallbackContext[ExtBot, dict, ChatData, dict]):
         self.chat_data.clicks_per_message[self._message_id] = value
 
     @classmethod
-    def from_update(cls, update: object, dispatcher: 'Dispatcher') -> 'CustomContext':
+    def from_update(cls, update: object, application: 'Application') -> 'CustomContext':
         """Override from_update to set _message_id."""
         # Make sure to call super()
-        context = super().from_update(update, dispatcher)
+        context = super().from_update(update, application)
 
         if context.chat_data and isinstance(update, Update) and update.effective_message:
             # pylint: disable=protected-access
@@ -117,12 +117,12 @@ def main() -> None:
     context_types = ContextTypes(context=CustomContext, chat_data=ChatData)
     updater = Updater.builder().token("TOKEN").context_types(context_types).build()
 
-    dispatcher = updater.dispatcher
+    application = updater.application
     # run track_users in its own group to not interfere with the user handlers
-    dispatcher.add_handler(TypeHandler(Update, track_users), group=-1)
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CallbackQueryHandler(count_click))
-    dispatcher.add_handler(CommandHandler("print_users", print_users))
+    application.add_handler(TypeHandler(Update, track_users), group=-1)
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(count_click))
+    application.add_handler(CommandHandler("print_users", print_users))
 
     updater.start_polling()
     updater.idle()

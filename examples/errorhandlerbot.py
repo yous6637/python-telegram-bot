@@ -70,15 +70,15 @@ def main() -> None:
     # Create the Updater and pass it your bot's token.
     updater = Updater.builder().token(BOT_TOKEN).build()
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Get the application to register handlers
+    application = updater.application
 
     # Register the commands...
-    dispatcher.add_handler(CommandHandler('start', start))
-    dispatcher.add_handler(CommandHandler('bad_command', bad_command))
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(CommandHandler('bad_command', bad_command))
 
     # ...and the error handler
-    dispatcher.add_error_handler(error_handler)
+    application.add_error_handler(error_handler)
 
     # Start the Bot
     updater.start_polling()

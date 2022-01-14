@@ -39,7 +39,7 @@ from telegram._utils.defaultvalue import DEFAULT_NONE
 from telegram._utils.types import ODVInput
 from telegram.error import InvalidToken, RetryAfter, TimedOut, Forbidden, TelegramError
 from telegram._utils.warnings import warn
-from telegram.ext import Dispatcher
+from telegram.ext import Application
 from telegram.ext._utils.stack import was_called_by
 from telegram.ext._utils.types import BT
 from telegram.ext._utils.webhookhandler import WebhookAppClass, WebhookServer
@@ -48,17 +48,17 @@ if TYPE_CHECKING:
     from telegram.ext._builders import InitUpdaterBuilder
 
 
-_DispType = TypeVar('_DispType', bound=Union[None, Dispatcher])
+_DispType = TypeVar('_DispType', bound=Union[None, Application])
 _UpdaterType = TypeVar('_UpdaterType', bound="Updater")
 
 
 class Updater(Generic[BT, _DispType]):
     """
-    This class, which employs the :class:`telegram.ext.Dispatcher`, provides a frontend to
+    This class, which employs the :class:`telegram.ext.Application`, provides a frontend to
     :class:`telegram.Bot` to the programmer, so they can focus on coding the bot. Its purpose is to
-    receive the updates from Telegram and to deliver them to said dispatcher. It also runs in a
+    receive the updates from Telegram and to deliver them to said application. It also runs in a
     separate thread, so the user can interact with the bot, for example on the command line. The
-    dispatcher supports handlers for different kinds of data: Updates from Telegram, basic text
+    application supports handlers for different kinds of data: Updates from Telegram, basic text
     commands and even arbitrary types. The updater can be started as a polling service or, for
     production, use a webhook to receive updates. This is achieved using the WebhookServer and
     TelegramHandler classes.
@@ -72,18 +72,18 @@ class Updater(Generic[BT, _DispType]):
         * Initialization is now done through the :class:`telegram.ext.UpdaterBuilder`.
         * Removed argument and attribute ``user_sig_handler``
         * Removed the attributes ``job_queue``, and ``persistence`` - use the corresponding
-          attributes of :attr:`dispatcher` instead.
+          attributes of :attr:`application` instead.
 
     Attributes:
         bot (:class:`telegram.Bot`): The bot used with this Updater.
         update_queue (:class:`asyncio.Queue`): Queue for the updates.
-        dispatcher (:class:`telegram.ext.Dispatcher`): Optional. Dispatcher that handles the
+        application (:class:`telegram.ext.Application`): Optional. Application that handles the
             updates and dispatches them to the handlers.
 
     """
 
     __slots__ = (
-        'dispatcher',
+        'application',
         'bot',
         '_logger',
         'update_queue',
@@ -98,7 +98,7 @@ class Updater(Generic[BT, _DispType]):
     def __init__(
         self: 'Updater[BT, _DispType]',
         *,
-        dispatcher: _DispType = None,
+        application: _DispType = None,
         bot: BT = None,
         update_queue: asyncio.Queue = None,
     ):
@@ -110,10 +110,10 @@ class Updater(Generic[BT, _DispType]):
                 stacklevel=2,
             )
 
-        self.dispatcher = dispatcher
-        if self.dispatcher:
-            self.bot = self.dispatcher.bot
-            self.update_queue = self.dispatcher.update_queue
+        self.application = application
+        if self.application:
+            self.bot = self.application.bot
+            self.update_queue = self.application.update_queue
         else:
             self.bot = bot
             self.update_queue = update_queue
@@ -143,15 +143,15 @@ class Updater(Generic[BT, _DispType]):
         return self._running
 
     async def initialize(self) -> None:
-        if self.dispatcher:
-            await self.dispatcher.initialize()
+        if self.application:
+            await self.application.initialize()
         else:
             await self.bot.initialize()
 
     async def shutdown(self) -> None:
-        if self.dispatcher:
-            self._logger.debug('Requesting Dispatcher to shut down ...')
-            await self.dispatcher.shutdown()
+        if self.application:
+            self._logger.debug('Requesting Application to shut down ...')
+            await self.application.shutdown()
         else:
             await self.bot.shutdown()
         self._logger.debug('Shut down of Updater complete')
@@ -246,11 +246,11 @@ class Updater(Generic[BT, _DispType]):
             self._running = True
 
             # Create & start tasks
-            dispatcher_ready = asyncio.Event()
+            application_ready = asyncio.Event()
             polling_ready = asyncio.Event()
 
-            if self.dispatcher:
-                self.dispatcher.start(ready=dispatcher_ready)
+            if self.application:
+                self.application.start(ready=application_ready)
 
             self._init_task(
                 self._start_polling,
@@ -269,10 +269,10 @@ class Updater(Generic[BT, _DispType]):
 
             self._logger.debug('Waiting for polling to start')
             await polling_ready.wait()
-            if self.dispatcher:
-                self._logger.debug('Waiting for Dispatcher to start')
-                await dispatcher_ready.wait()
-                self._logger.debug('Dispatcher started')
+            if self.application:
+                self._logger.debug('Waiting for Application to start')
+                await application_ready.wait()
+                self._logger.debug('Application started')
 
             return self.update_queue
 
@@ -291,7 +291,7 @@ class Updater(Generic[BT, _DispType]):
     ) -> None:
         # Target of task 'updater.start_polling()'. Runs in background, pulls
         # updates from Telegram and inserts them in the update queue of the
-        # Dispatcher.
+        # Application.
 
         self._logger.debug('Updater started (polling)')
 
@@ -326,10 +326,10 @@ class Updater(Generic[BT, _DispType]):
             return True
 
         # TODO: rethink this. suggestion:
-        #   • If we have a dispatcher, just call `dispatcher.dispatch_error`
+        #   • If we have a application, just call `application.dispatch_error`
         #   • Otherwise, log it
         async def polling_onerr_cb(exc: Exception) -> None:
-            # Put the error into the update queue and let the Dispatcher
+            # Put the error into the update queue and let the Application
             # broadcast it
             await self.update_queue.put(exc)
 
@@ -406,10 +406,10 @@ class Updater(Generic[BT, _DispType]):
 
             # Create & start tasks
             webhook_ready = asyncio.Event()
-            dispatcher_ready = asyncio.Event()
+            application_ready = asyncio.Event()
 
-            if self.dispatcher:
-                self.dispatcher.start(ready=dispatcher_ready)
+            if self.application:
+                self.application.start(ready=application_ready)
             await self._start_webhook(
                 listen=listen,
                 port=port,
@@ -429,10 +429,10 @@ class Updater(Generic[BT, _DispType]):
             await webhook_ready.wait()
             self._logger.debug('Webhook server started')
 
-            if self.dispatcher:
-                self._logger.debug('Waiting for Dispatcher to start')
-                await dispatcher_ready.wait()
-                self._logger.debug('Dispatcher started')
+            if self.application:
+                self._logger.debug('Waiting for Application to start')
+                await application_ready.wait()
+                self._logger.debug('Application started')
 
             # Return the update queue so the main thread can insert updates
             return self.update_queue
@@ -640,21 +640,21 @@ class Updater(Generic[BT, _DispType]):
             )
 
     async def stop(self) -> None:
-        """Stops the polling/webhook, the dispatcher and the job queue."""
+        """Stops the polling/webhook, the application and the job queue."""
         async with self.__lock:
             if self.running:
                 self._logger.debug(
-                    'Stopping Updater %s...', 'and Dispatcher ' if self.dispatcher else ''
+                    'Stopping Updater %s...', 'and Application ' if self.application else ''
                 )
 
                 self._running = False
 
                 await self._stop_httpd()
                 await self._join_tasks()
-                if self.dispatcher:
-                    self._logger.debug('Waiting for dispatcher to stop')
-                    await self.dispatcher.stop()
-                    self._logger.debug('Dispatcher stopped')
+                if self.application:
+                    self._logger.debug('Waiting for application to stop')
+                    await self.application.stop()
+                    self._logger.debug('Application stopped')
 
                 self._has_stopped_fetching.set()
 

@@ -32,7 +32,7 @@ from telegram.ext._extbot import ExtBot
 from telegram.ext._utils.types import JobCallback
 
 if TYPE_CHECKING:
-    from telegram.ext import Dispatcher
+    from telegram.ext import Application
 
 
 class JobQueue:
@@ -48,10 +48,10 @@ class JobQueue:
 
     """
 
-    __slots__ = ('_dispatcher', 'scheduler', '_executor')
+    __slots__ = ('_application', 'scheduler', '_executor')
 
     def __init__(self) -> None:
-        self._dispatcher: 'Optional[weakref.ReferenceType[Dispatcher]]' = None
+        self._application: 'Optional[weakref.ReferenceType[Application]]' = None
         self._executor = AsyncIOExecutor()
         self.scheduler = AsyncIOScheduler(timezone=pytz.utc, executors={'default': self._executor})
 
@@ -93,26 +93,26 @@ class JobQueue:
         # isinstance(time, datetime.datetime):
         return time
 
-    def set_dispatcher(self, dispatcher: 'Dispatcher') -> None:
-        """Set the dispatcher to be used by this JobQueue.
+    def set_application(self, application: 'Application') -> None:
+        """Set the application to be used by this JobQueue.
 
         Args:
-            dispatcher (:class:`telegram.ext.Dispatcher`): The dispatcher.
+            application (:class:`telegram.ext.Application`): The application.
 
         """
-        self._dispatcher = weakref.ref(dispatcher)
-        if isinstance(dispatcher.bot, ExtBot) and dispatcher.bot.defaults:
-            self.scheduler.configure(timezone=dispatcher.bot.defaults.tzinfo or pytz.utc)
+        self._application = weakref.ref(application)
+        if isinstance(application.bot, ExtBot) and application.bot.defaults:
+            self.scheduler.configure(timezone=application.bot.defaults.tzinfo or pytz.utc)
 
     @property
-    def dispatcher(self) -> 'Dispatcher':
-        """The dispatcher this JobQueue is associated with."""
-        if self._dispatcher is None:
-            raise RuntimeError('No dispatcher was set for this JobQueue.')
-        dispatcher = self._dispatcher()
-        if dispatcher is not None:
-            return dispatcher
-        raise RuntimeError('The dispatcher instance is no longer alive.')
+    def application(self) -> 'Application':
+        """The application this JobQueue is associated with."""
+        if self._application is None:
+            raise RuntimeError('No application was set for this JobQueue.')
+        application = self._application()
+        if application is not None:
+            return application
+        raise RuntimeError('The application instance is no longer alive.')
 
     def run_once(
         self,
@@ -169,7 +169,7 @@ class JobQueue:
             name=name,
             trigger='date',
             run_date=date_time,
-            args=(self.dispatcher,),
+            args=(self.application,),
             timezone=date_time.tzinfo or self.scheduler.timezone,
             **job_kwargs,
         )
@@ -261,7 +261,7 @@ class JobQueue:
         j = self.scheduler.add_job(
             job.run,
             trigger='interval',
-            args=(self.dispatcher,),
+            args=(self.application,),
             start_date=dt_first,
             end_date=dt_last,
             seconds=interval,
@@ -322,7 +322,7 @@ class JobQueue:
         j = self.scheduler.add_job(
             job.run,
             trigger='cron',
-            args=(self.dispatcher,),
+            args=(self.application,),
             name=name,
             day='last' if day == -1 else day,
             hour=when.hour,
@@ -380,7 +380,7 @@ class JobQueue:
         j = self.scheduler.add_job(
             job.run,
             name=name,
-            args=(self.dispatcher,),
+            args=(self.application,),
             trigger='cron',
             day_of_week=','.join([str(d) for d in days]),
             hour=time.hour,
@@ -421,7 +421,7 @@ class JobQueue:
         name = name or callback.__name__
         job = Job(callback, context, name)
 
-        j = self.scheduler.add_job(job, args=(self.dispatcher,), name=name, **job_kwargs)
+        j = self.scheduler.add_job(job, args=(self.application,), name=name, **job_kwargs)
 
         job.job = j
         return job
@@ -522,31 +522,31 @@ class Job:
 
         self.job = cast(APSJob, job)  # skipcq: PTC-W0052
 
-    async def run(self, dispatcher: 'Dispatcher') -> None:
+    async def run(self, application: 'Application') -> None:
         """Executes the callback function independently of the jobs schedule. Also calls
-        :meth:`telegram.ext.Dispatcher.update_persistence`.
+        :meth:`telegram.ext.Application.update_persistence`.
 
         .. versionchanged:: 14.0
-            Calls :meth:`telegram.ext.Dispatcher.update_persistence`.
+            Calls :meth:`telegram.ext.Application.update_persistence`.
 
         Args:
-            dispatcher (:class:`telegram.ext.Dispatcher`): The dispatcher this job is associated
+            application (:class:`telegram.ext.Application`): The application this job is associated
                 with.
         """
         try:
             # We shield the task such that the job isn't cancelled mid-run
             await asyncio.shield(
-                self.callback(dispatcher.context_types.context.from_job(self, dispatcher))
+                self.callback(application.context_types.context.from_job(self, application))
             )
 
         # TODO: probably run dispatch_error and update_persistence via `run_async` since those
         #   shouldn't count towards the jobs execution time
-        #   Additionally double check with the Dispatcher.process_update logic on whether we want
+        #   Additionally double check with the Application.process_update logic on whether we want
         #   to update the persistence if the job failed
         except Exception as exc:
-            await dispatcher.create_task(dispatcher.dispatch_error(None, exc, job=self))
+            await application.create_task(application.dispatch_error(None, exc, job=self))
         finally:
-            dispatcher.update_persistence(None)
+            application.update_persistence(None)
 
     def schedule_removal(self) -> None:
         """

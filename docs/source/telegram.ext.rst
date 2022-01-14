@@ -4,11 +4,11 @@ telegram.ext package
 .. toctree::
 
     telegram.ext.extbot
+    telegram.ext.applicationbuilder
+    telegram.ext.application
+    telegram.ext.applicationhandlerstop
     telegram.ext.updaterbuilder
     telegram.ext.updater
-    telegram.ext.dispatcherbuilder
-    telegram.ext.dispatcher
-    telegram.ext.dispatcherhandlerstop
     telegram.ext.callbackcontext
     telegram.ext.job
     telegram.ext.jobqueue

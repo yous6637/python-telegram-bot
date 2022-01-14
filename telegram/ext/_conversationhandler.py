@@ -42,7 +42,7 @@ from telegram.ext import (
     CallbackContext,
     CallbackQueryHandler,
     ChosenInlineResultHandler,
-    DispatcherHandlerStop,
+    ApplicationHandlerStop,
     Handler,
     InlineQueryHandler,
     StringCommandHandler,
@@ -54,23 +54,23 @@ from telegram.ext._utils.types import ConversationDict
 from telegram.ext._utils.types import CCT
 
 if TYPE_CHECKING:
-    from telegram.ext import Dispatcher, Job, JobQueue
+    from telegram.ext import Application, Job, JobQueue
 CheckUpdateType = Tuple[object, Tuple[int, ...], Handler, object]
 
 
 class _ConversationTimeoutContext:
-    __slots__ = ('conversation_key', 'update', 'dispatcher', 'callback_context')
+    __slots__ = ('conversation_key', 'update', 'application', 'callback_context')
 
     def __init__(
         self,
         conversation_key: Tuple[int, ...],
         update: Update,
-        dispatcher: 'Dispatcher[Any, CCT, Any, Any, Any, JobQueue, Any]',
+        application: 'Application[Any, CCT, Any, Any, Any, JobQueue, Any]',
         callback_context: CallbackContext,
     ):
         self.conversation_key = conversation_key
         self.update = update
-        self.dispatcher = dispatcher
+        self.application = application
         self.callback_context = callback_context
 
 
@@ -116,7 +116,7 @@ class ConversationHandler(Handler[Update, CCT]):
     the conversation ends immediately after the execution of this callback function.
     To end the conversation, the callback function must return :attr:`END` or ``-1``. To
     handle the conversation timeout, use handler :attr:`TIMEOUT` or ``-2``.
-    Finally, :class:`telegram.ext.DispatcherHandlerStop` can be used in conversations as described
+    Finally, :class:`telegram.ext.ApplicationHandlerStop` can be used in conversations as described
     in the corresponding documentation.
 
     Note:
@@ -266,7 +266,7 @@ class ConversationHandler(Handler[Update, CCT]):
         self.persistent: bool = persistent
         self._persistence: Optional[BasePersistence] = None
         """:obj:`telegram.ext.BasePersistence`: The persistence used to store conversations.
-        Set by dispatcher"""
+        Set by application"""
         self._map_to_parent = map_to_parent
 
         self.timeout_jobs: Dict[Tuple[int, ...], 'Job'] = {}
@@ -482,7 +482,7 @@ class ConversationHandler(Handler[Update, CCT]):
 
     @property
     def persistence(self) -> Optional[BasePersistence]:
-        """The persistence class as provided by the :class:`Dispatcher`."""
+        """The persistence class as provided by the :class:`Application`."""
         return self._persistence
 
     @persistence.setter
@@ -546,7 +546,7 @@ class ConversationHandler(Handler[Update, CCT]):
     def _schedule_job(
         self,
         new_state: Union[object, asyncio.Task],
-        dispatcher: 'Dispatcher[Any, CCT, Any, Any, Any, JobQueue, Any]',
+        application: 'Application[Any, CCT, Any, Any, Any, JobQueue, Any]',
         update: Update,
         context: CallbackContext,
         conversation_key: Tuple[int, ...],
@@ -557,12 +557,12 @@ class ConversationHandler(Handler[Update, CCT]):
         if new_state != self.END:
             try:
                 # both job_queue & conversation_timeout are checked before calling _schedule_job
-                j_queue = dispatcher.job_queue
+                j_queue = application.job_queue
                 self.timeout_jobs[conversation_key] = j_queue.run_once(
                     self._trigger_timeout,
                     self.conversation_timeout,  # type: ignore[arg-type]
                     context=_ConversationTimeoutContext(
-                        conversation_key, update, dispatcher, context
+                        conversation_key, update, application, context
                     ),
                 )
             except Exception as exc:
@@ -662,7 +662,7 @@ class ConversationHandler(Handler[Update, CCT]):
     async def handle_update(  # type: ignore[override]
         self,
         update: Update,
-        dispatcher: 'Dispatcher',
+        application: 'Application',
         check_result: CheckUpdateType,
         context: CallbackContext,
     ) -> Optional[object]:
@@ -672,9 +672,10 @@ class ConversationHandler(Handler[Update, CCT]):
             check_result: The result from check_update. For this handler it's a tuple of the
                 conversation state, key, handler, and the handler's check result.
             update (:class:`telegram.Update`): Incoming telegram update.
-            dispatcher (:class:`telegram.ext.Dispatcher`): Dispatcher that originated the Update.
+            application (:class:`telegram.ext.Application`): Application that originated the
+                update.
             context (:class:`telegram.ext.CallbackContext`): The context as provided by
-                the dispatcher.
+                the application.
 
         """
         current_state, conversation_key, handler, handler_check_result = check_result
@@ -688,20 +689,20 @@ class ConversationHandler(Handler[Update, CCT]):
                 timeout_job.schedule_removal()
         try:
             new_state = await handler.handle_update(
-                update, dispatcher, handler_check_result, context
+                update, application, handler_check_result, context
             )
-        except DispatcherHandlerStop as exception:
+        except ApplicationHandlerStop as exception:
             new_state = exception.state
             raise_dp_handler_stop = True
         with self._timeout_jobs_lock:
             if self.conversation_timeout:
-                if dispatcher.job_queue is not None:
+                if application.job_queue is not None:
                     # Add the new timeout job
                     if isinstance(new_state, asyncio.Task):
                         new_state.add_done_callback(
                             functools.partial(
                                 self._schedule_job,
-                                dispatcher=dispatcher,
+                                application=application,
                                 update=update,
                                 context=context,
                                 conversation_key=conversation_key,
@@ -709,17 +710,17 @@ class ConversationHandler(Handler[Update, CCT]):
                         )
                     elif new_state != self.END:
                         self._schedule_job(
-                            new_state, dispatcher, update, context, conversation_key
+                            new_state, application, update, context, conversation_key
                         )
                 else:
                     warn(
-                        "Ignoring `conversation_timeout` because the Dispatcher has no JobQueue.",
+                        "Ignoring `conversation_timeout` because the Application has no JobQueue.",
                     )
 
         if isinstance(self.map_to_parent, dict) and new_state in self.map_to_parent:
             self._update_state(self.END, conversation_key)
             if raise_dp_handler_stop:
-                raise DispatcherHandlerStop(self.map_to_parent.get(new_state))
+                raise ApplicationHandlerStop(self.map_to_parent.get(new_state))
             return self.map_to_parent.get(new_state)
 
         if current_state != self.WAITING:
@@ -728,7 +729,7 @@ class ConversationHandler(Handler[Update, CCT]):
         if raise_dp_handler_stop:
             # Don't pass the new state here. If we're in a nested conversation, the parent is
             # expecting None as return value.
-            raise DispatcherHandlerStop()
+            raise ApplicationHandlerStop()
         return None
 
     def _update_state(self, new_state: object, key: Tuple[int, ...]) -> None:
@@ -782,11 +783,11 @@ class ConversationHandler(Handler[Update, CCT]):
             if check is not None and check is not False:
                 try:
                     await handler.handle_update(
-                        ctxt.update, ctxt.dispatcher, check, callback_context
+                        ctxt.update, ctxt.application, check, callback_context
                     )
-                except DispatcherHandlerStop:
+                except ApplicationHandlerStop:
                     warn(
-                        'DispatcherHandlerStop in TIMEOUT state of '
+                        'ApplicationHandlerStop in TIMEOUT state of '
                         'ConversationHandler has no effect. Ignoring.',
                     )
 

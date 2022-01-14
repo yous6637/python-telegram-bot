@@ -60,9 +60,9 @@ def main() -> None:
     # Create the Updater and pass it your bot's token.
     updater = Updater.builder().token("TOKEN").build()
 
-    updater.dispatcher.add_handler(CommandHandler('start', start))
-    updater.dispatcher.add_handler(CallbackQueryHandler(button))
-    updater.dispatcher.add_handler(CommandHandler('help', help_command))
+    updater.application.add_handler(CommandHandler('start', start))
+    updater.application.add_handler(CallbackQueryHandler(button))
+    updater.application.add_handler(CommandHandler('help', help_command))
 
     # Start the Bot
     updater.start_polling()
