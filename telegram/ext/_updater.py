@@ -20,12 +20,10 @@
 import asyncio
 import inspect
 import logging
-import signal
 import ssl
 from pathlib import Path
 from types import TracebackType
 from typing import (
-    Any,
     Callable,
     List,
     Optional,
@@ -34,9 +32,7 @@ from typing import (
     TypeVar,
     TYPE_CHECKING,
     Coroutine,
-    Tuple,
     Type,
-    no_type_check,
 )
 
 from telegram._utils.defaultvalue import DEFAULT_NONE
@@ -74,17 +70,12 @@ class Updater(Generic[BT, _DispType]):
     .. versionchanged:: 14.0
 
         * Initialization is now done through the :class:`telegram.ext.UpdaterBuilder`.
-        * Renamed ``user_sig_handler`` to :attr:`user_signal_handler`.
+        * Removed argument and attribute ``user_sig_handler``
         * Removed the attributes ``job_queue``, and ``persistence`` - use the corresponding
           attributes of :attr:`dispatcher` instead.
 
     Attributes:
         bot (:class:`telegram.Bot`): The bot used with this Updater.
-        user_signal_handler (:obj:`function`): Optional. Function to be called when a signal is
-            received.
-
-            .. versionchanged:: 14.0
-                Renamed ``user_sig_handler`` to ``user_signal_handler``.
         update_queue (:class:`asyncio.Queue`): Queue for the updates.
         dispatcher (:class:`telegram.ext.Dispatcher`): Optional. Dispatcher that handles the
             updates and dispatches them to the handlers.
@@ -93,7 +84,6 @@ class Updater(Generic[BT, _DispType]):
 
     __slots__ = (
         'dispatcher',
-        'user_signal_handler',
         'bot',
         '_logger',
         'update_queue',
@@ -108,7 +98,6 @@ class Updater(Generic[BT, _DispType]):
     def __init__(
         self: 'Updater[BT, _DispType]',
         *,
-        user_signal_handler: Callable[[int, object], Any] = None,
         dispatcher: _DispType = None,
         bot: BT = None,
         update_queue: asyncio.Queue = None,
@@ -121,7 +110,6 @@ class Updater(Generic[BT, _DispType]):
                 stacklevel=2,
             )
 
-        self.user_signal_handler = user_signal_handler
         self.dispatcher = dispatcher
         if self.dispatcher:
             self.bot = self.dispatcher.bot
@@ -682,40 +670,3 @@ class Updater(Generic[BT, _DispType]):
             task.cancel()
         await asyncio.gather(*self.__asyncio_tasks)
         self.__asyncio_tasks = []
-
-    @no_type_check
-    def _signal_handler(self, signum, frame) -> None:
-        if self.running:
-            self._logger.info(
-                'Received signal %s (%s), stopping...',
-                signum,
-                # signal.Signals is undocumented in py3.5-3.8, but existed nonetheless
-                # https://github.com/python/cpython/pull/28628
-                signal.Signals(signum),  # pylint: disable=no-member
-            )
-            asyncio.create_task(self.stop())
-            if self.user_signal_handler:
-                self.user_signal_handler(signum, frame)
-        else:
-            # TODO: Think about whether or not we still need this
-            self._logger.warning('Exiting immediately!')
-            # pylint: disable=import-outside-toplevel, protected-access
-            import os
-
-            os._exit(1)
-
-    async def idle(
-        self, stop_signals: Union[List, Tuple] = (signal.SIGINT, signal.SIGTERM, signal.SIGABRT)
-    ) -> None:
-        """Blocks until one of the signals are received and stops the updater.
-
-        Args:
-            stop_signals (:obj:`list` | :obj:`tuple`): List containing signals from the signal
-                module that should be subscribed to. :meth:`Updater.stop()` will be called on
-                receiving one of those signals. Defaults to (``SIGINT``, ``SIGTERM``, SIGABRT``).
-
-        """
-        for sig in stop_signals:
-            signal.signal(sig, self._signal_handler)
-
-        await self._has_stopped_fetching.wait()

@@ -18,7 +18,6 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 # pylint: disable=no-self-use
 """This module contains the CallbackContext class."""
-import asyncio
 from asyncio import Queue
 from typing import (
     TYPE_CHECKING,
@@ -30,6 +29,7 @@ from typing import (
     Tuple,
     Generic,
     Type,
+    Coroutine,
 )
 
 from telegram import Update, CallbackQuery
@@ -120,7 +120,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         'matches',
         'error',
         'job',
-        'task',
+        'coroutine',
         '__dict__',
     )
 
@@ -134,9 +134,9 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         self._user_id_and_data: Optional[Tuple[int, UD]] = None
         self.args: Optional[List[str]] = None
         self.matches: Optional[List[Match]] = None
-        self.error: Optional[BaseException] = None
+        self.error: Optional[Exception] = None
         self.job: Optional['Job'] = None
-        self.task: Optional[asyncio.Task] = None
+        self.coroutine: Optional[Coroutine] = None
 
     @property
     def dispatcher(self) -> 'Dispatcher[BT, CCT, UD, CD, BD, JQ, PT]':
@@ -247,10 +247,10 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
     def from_error(
         cls: Type['CCT'],
         update: object,
-        error: BaseException,
+        error: Exception,
         dispatcher: 'Dispatcher[BT, CCT, UD, CD, BD, JQ, PT]',
         job: 'Job' = None,
-        task: asyncio.Task = None,
+        coroutine: Coroutine = None,
     ) -> 'CCT':
         """
         Constructs an instance of :class:`telegram.ext.CallbackContext` to be passed to the error
@@ -279,7 +279,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         """
         self = cls.from_update(update, dispatcher)
         self.error = error
-        self.task = task
+        self.coroutine = coroutine
         self.job = job
         return self
 

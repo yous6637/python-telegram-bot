@@ -18,7 +18,6 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the Dispatcher class."""
 import asyncio
-import functools
 import inspect
 import logging
 from asyncio import Event
@@ -39,6 +38,8 @@ from typing import (
     Type,
     Tuple,
     Coroutine,
+    Any,
+    Set,
 )
 
 from telegram import Update
@@ -60,7 +61,7 @@ DEFAULT_GROUP: int = 0
 
 _UT = TypeVar('_UT')
 _DispType = TypeVar('_DispType', bound="Dispatcher")
-_PooledRT = TypeVar('_PooledRT')
+_RT = TypeVar('_RT')
 _STOP_SIGNAL = object()
 
 _logger = logging.getLogger(__name__)
@@ -115,8 +116,8 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             updates.
         job_queue (:class:`telegram.ext.JobQueue`): Optional. The :class:`telegram.ext.JobQueue`
             instance to pass onto handler callbacks.
-        workers (:obj:`int`, optional): Number of maximum concurrent worker threads for the
-            ``@run_async`` decorator and :meth:`run_async`.
+        concurrent_updates (:obj:`int`, optional): Number of maximum concurrent worker threads for
+            the ``@run_async`` decorator and :meth:`run_async`.
         user_data (:obj:`defaultdict`): A dictionary handlers can use to store data for the user.
         chat_data (:obj:`defaultdict`): A dictionary handlers can use to store data for the chat.
         bot_data (:obj:`dict`): A dictionary handlers can use to store data for the bot.
@@ -139,7 +140,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
     # Allowing '__weakref__' creation here since we need it for the JobQueue
     __slots__ = (
         '__weakref__',
-        'workers',
+        '_concurrent_updates',
         'persistence',
         'update_queue',
         'job_queue',
@@ -147,15 +148,14 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         'chat_data',
         'bot_data',
         '_update_persistence_lock',
+        '_concurrent_updates_sem',
         'handlers',
         'error_handlers',
         '_running',
-        '__async_task_counter',
-        '__async_task_event',
+        '__create_task_tasks',
         '__update_fetcher_task',
         'bot',
         'context_types',
-        'process_asyncio',
     )
 
     def __init__(
@@ -164,10 +164,9 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         bot: BT,
         update_queue: asyncio.Queue,
         job_queue: JQ,
-        workers: int,
+        concurrent_updates: Union[bool, int],
         persistence: PT,
         context_types: ContextTypes[CCT, UD, CD, BD],
-        stack_level: int = 4,
     ):
         if not was_called_by(
             inspect.currentframe(), Path(__file__).parent.resolve() / '_builders.py'
@@ -180,18 +179,18 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         self.bot = bot
         self.update_queue = update_queue
         self.job_queue = job_queue
-        self.workers = workers
         self.context_types = context_types
-        self.process_asyncio = True
+
+        if isinstance(concurrent_updates, int) and concurrent_updates < 0:
+            raise ValueError('`concurrent_updates` must be a non-negative integer!')
+
+        if concurrent_updates is True:
+            concurrent_updates = 4096
+        self._concurrent_updates_sem = asyncio.BoundedSemaphore(concurrent_updates or 1)
+        self._concurrent_updates = bool(concurrent_updates)
 
         if self.job_queue:
             self.job_queue.set_dispatcher(self)
-
-        if self.workers < 1:
-            warn(
-                'Asynchronous callbacks can not be processed without at least one worker thread.',
-                stacklevel=stack_level,
-            )
 
         self.user_data: DefaultDict[int, UD] = defaultdict(self.context_types.user_data)
         self.chat_data: DefaultDict[int, CD] = defaultdict(self.context_types.chat_data)
@@ -206,8 +205,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         # A number of low-level helpers for the internal logic
         self._running = False
         self.__update_fetcher_task: Optional[asyncio.Task] = None
-        self.__async_task_counter = 0
-        self.__async_task_event = asyncio.Event()
+        self.__create_task_tasks: Set[asyncio.Task] = set()
 
     @property
     def running(self) -> bool:
@@ -217,6 +215,10 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             :meth:`start`, :meth:`stop`
         """
         return self._running
+
+    @property
+    def concurrent_updates(self) -> bool:
+        return self._concurrent_updates
 
     async def initialize(self) -> None:
         await self.bot.initialize()
@@ -281,15 +283,6 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                     persistent_data=persistent_data,
                 )
 
-    def __increment_async_task_counter(self) -> None:
-        self.__async_task_event.clear()
-        self.__async_task_counter += 1
-
-    def __decrement_async_task_counter(self) -> None:
-        self.__async_task_counter -= 1
-        if self.__async_task_counter <= 0:
-            self.__async_task_event.set()
-
     @staticmethod
     def builder() -> 'InitDispatcherBuilder':
         """Convenience method. Returns a new :class:`telegram.ext.DispatcherBuilder`.
@@ -351,7 +344,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             _logger.debug("Dispatcher stopped fetching of updates.")
 
             _logger.debug('Waiting for `create_task` calls to be processed')
-            await self.__async_task_event.wait()
+            await asyncio.gather(*self.__create_task_tasks, return_exceptions=True)
 
             self._running = False
 
@@ -366,28 +359,49 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                 _logger.debug('JobQueue stopped')
 
     def create_task(self, coroutine: Coroutine, update: object = None) -> asyncio.Task:
+        """Thin wrapper around :meth:`asyncio.create_task` that handles exceptions raised by
+        the ``coroutine`` with :meth:`dispatch_error`.
+
+        Note:
+            * If ``coroutine`` raises an exception, it will be set on the task created by this
+              method even though it's handled by :meth:`dispatch_error`.
+            * Tasks created by this methods will be awaited by :meth:`stop`.
+
+        Args:
+            coroutine: The coroutine to run as task.
+            update: Optional. If passed, will be passed to :meth:`dispatch_error` as additional
+                information for the error handlers.
+
+        Returns:
+            :class:`asyncio.Task`: The created task.
+        """
         return self.__create_task(coroutine=coroutine, update=update)
 
     def __create_task(
         self, coroutine: Coroutine, update: object = None, is_error_handler: bool = False
     ) -> asyncio.Task:
-        task = asyncio.create_task(coroutine)
-        task.add_done_callback(
-            functools.partial(
-                self._done_callback, update=update, is_error_handler=is_error_handler
+        # Unfortunately, we can't know if `coroutine` runs one of the error handler functions
+        # but by passing `is_error_handler=True` from `dispatch_error`, we can make sure that we
+        # get at most one recursion of the user calls `create_task` manually with an error handler
+        # function
+        task = asyncio.create_task(
+            self.__create_task_callback(
+                coroutine=coroutine, update=update, is_error_handler=is_error_handler
             )
         )
-        self.__increment_async_task_counter()
+        self.__create_task_tasks.add(task)
+        task.add_done_callback(self.__create_task_tasks.discard)
         return task
 
-    def _done_callback(
+    async def __create_task_callback(
         self,
-        task: asyncio.Task,
+        coroutine: Coroutine[Any, Any, _RT],
         update: object = None,
         is_error_handler: bool = False,
-    ) -> None:
-        exception = task.exception()
-        if exception:
+    ) -> _RT:
+        try:
+            return await coroutine
+        except Exception as exception:
             if isinstance(exception, DispatcherHandlerStop):
                 warn(
                     'DispatcherHandlerStop is not supported with asynchronously running handlers.'
@@ -405,9 +419,9 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                 # If we arrive here, an exception happened in the task and was neither
                 # DispatcherHandlerStop nor raised by an error handler.
                 # So we can and must handle it
-                self.create_task(self.dispatch_error(update, exception, task=task))
+                self.create_task(self.dispatch_error(update, exception, coroutine=coroutine))
 
-        self.__decrement_async_task_counter()
+            raise exception
 
     async def _update_fetcher(self) -> None:
         # Continuously fetch updates from the queue. Exit only once the signal object is found.
@@ -426,7 +440,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
                 _logger.debug('Processing update %s', update)
 
-                if self.process_asyncio:
+                if self._concurrent_updates:
                     asyncio.create_task(self.__process_update_wrapper(update))
                 else:
                     await self.__process_update_wrapper(update)
@@ -434,8 +448,9 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                 _logger.exception('updater fetcher got exception', exc_info=exc)
 
     async def __process_update_wrapper(self, update: object) -> None:
-        await self.process_update(update)
-        self.update_queue.task_done()
+        async with self._concurrent_updates_sem:
+            await self.process_update(update)
+            self.update_queue.task_done()
 
     async def process_update(self, update: object) -> None:
         """Processes a single update and updates the persistence.
@@ -697,9 +712,9 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
     async def dispatch_error(
         self,
         update: Optional[object],
-        error: BaseException,
+        error: Exception,
         job: 'Job' = None,
-        task: asyncio.Task = None,
+        coroutine: Coroutine = None,
     ) -> bool:
         """Dispatches an error by passing it to all error handlers registered with
         :meth:`add_error_handler`. If one of the error handlers raises
@@ -735,7 +750,7 @@ class Dispatcher(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                     error=error,
                     dispatcher=self,
                     job=job,
-                    task=task,
+                    coroutine=coroutine,
                 )
                 if block:
                     self.__create_task(

@@ -119,7 +119,7 @@ _BOT_CHECKS = [
 _DISPATCHER_CHECKS = [
     ('bot', 'bot instance'),
     ('update_queue', 'update_queue'),
-    ('workers', 'workers'),
+    ('_concurrent_updates', '_concurrent_updates'),
     ('job_queue', 'JobQueue instance'),
     ('persistence', 'persistence instance'),
     ('context_types', 'ContextTypes instance'),
@@ -241,7 +241,6 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
             job_queue=job_queue,
             persistence=DefaultValue.get_value(self._persistence),
             context_types=DefaultValue.get_value(self._context_types),
-            stack_level=stack_level + 1,
             **self._dispatcher_kwargs,
         )
 
@@ -276,7 +275,6 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
             dispatcher = self._build_dispatcher(stack_level=4)
             return self._updater_class(
                 dispatcher=dispatcher,
-                user_signal_handler=self._user_signal_handler,
                 **self._updater_kwargs,  # type: ignore[arg-type]
             )
 
@@ -289,7 +287,6 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
             dispatcher=self._dispatcher,
             bot=bot,
             update_queue=DefaultValue.get_value(self._update_queue),
-            user_signal_handler=self._user_signal_handler,
             **self._updater_kwargs,
         )
 
@@ -420,7 +417,7 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
 
     def _set_workers(self: BuilderType, workers: int) -> BuilderType:
         if self._dispatcher_check:
-            raise RuntimeError(_TWO_ARGS_REQ.format('workers', 'Dispatcher instance'))
+            raise RuntimeError(_TWO_ARGS_REQ.format('_concurrent_updates', 'Dispatcher instance'))
         self._workers = workers
         return self
 
