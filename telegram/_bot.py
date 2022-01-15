@@ -179,7 +179,8 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         'private_key',
         '_bot_user',
         '_request',
-        'logger',
+        '_logger',
+        '_initialized',
     )
 
     def __init__(
@@ -197,7 +198,8 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         self.base_file_url = base_file_url + self.token
         self._bot_user: Optional[User] = None
         self.private_key = None
-        self.logger = logging.getLogger(__name__)
+        self._logger = logging.getLogger(__name__)
+        self._initialized = False
 
         self._request = (HTTPXRequest(), HTTPXRequest()) if request is None else request
 
@@ -350,15 +352,19 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         cache :attr:`bot` and calls :meth:`telegram.request.BaseRequest.initialize` for
         :attr:`request`.
         """
-        await self.request.initialize()
-        await self.get_me()
+        if not self._initialized:
+            await self.request.initialize()
+            await self.get_me()
+            self._initialized = True
 
     async def shutdown(self) -> None:
         """Stop & clear resources used by this class. Currently just calls
         :meth:`telegram.request.BaseRequest.stop` for :attr:`request`.
         """
-        for req in self._request:
-            await req.shutdown()
+        if self._initialized:
+            for req in self._request:
+                await req.shutdown()
+                self._initialized = False
 
     async def __aenter__(self: BT) -> BT:
         try:
@@ -3329,9 +3335,9 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         )
 
         if result:
-            self.logger.debug('Getting updates: %s', [u['update_id'] for u in result])
+            self._logger.debug('Getting updates: %s', [u['update_id'] for u in result])
         else:
-            self.logger.debug('No new updates found.')
+            self._logger.debug('No new updates found.')
 
         return Update.de_list(result, self)  # type: ignore[return-value]
 

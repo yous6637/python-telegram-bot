@@ -43,14 +43,14 @@ from typing import (
 )
 
 from telegram import Update
-from telegram._utils.types import DVInput
+from telegram._utils.types import DVInput, ODVInput
 from telegram.error import TelegramError
 from telegram.ext import BasePersistence, ContextTypes, ExtBot
 from telegram.ext._handler import Handler
 from telegram.ext._callbackdatacache import CallbackDataCache
-from telegram._utils.defaultvalue import DefaultValue, DEFAULT_TRUE
+from telegram._utils.defaultvalue import DefaultValue, DEFAULT_TRUE, DEFAULT_NONE
 from telegram._utils.warnings import warn
-from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, PT, HandlerCallback
+from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, PT, HandlerCallback, UpD
 from telegram.ext._utils.stack import was_called_by
 
 if TYPE_CHECKING:
@@ -98,7 +98,7 @@ class ApplicationHandlerStop(Exception):
         self.state = state
 
 
-class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
+class Application(Generic[BT, UpD, CCT, UD, CD, BD, JQ, PT]):
     """This class dispatches all kinds of updates to its registered handlers.
 
     Note:
@@ -141,6 +141,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
     __slots__ = (
         '__weakref__',
         '_concurrent_updates',
+        'updater',
         'persistence',
         'update_queue',
         'job_queue',
@@ -159,10 +160,11 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
     )
 
     def __init__(
-        self: 'Application[BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]',
         *,
         bot: BT,
         update_queue: asyncio.Queue,
+        updater: UpD,
         job_queue: JQ,
         concurrent_updates: Union[bool, int],
         persistence: PT,
@@ -180,6 +182,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         self.update_queue = update_queue
         self.job_queue = job_queue
         self.context_types = context_types
+        self.updater = updater
 
         if isinstance(concurrent_updates, int) and concurrent_updates < 0:
             raise ValueError('`concurrent_updates` must be a non-negative integer!')
@@ -222,9 +225,13 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
     async def initialize(self) -> None:
         await self.bot.initialize()
+        if self.updater:
+            await self.updater.initialize()
 
     async def shutdown(self) -> None:
         await self.bot.shutdown()
+        if self.updater:
+            await self.updater.shutdown()
 
     async def __aenter__(self: _DispType) -> _DispType:
         try:
@@ -294,10 +301,13 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
         return ApplicationBuilder()
 
-    def start(self, ready: Event = None) -> None:
-        """Thread target of thread 'application'.
+    async def start(self, ready: Event = None) -> None:
+        """Starts a background task that fetches updates from :attr:`update_queue` and
+        processes them. Also starts :attr:`job_queue`, if set.
 
-        Runs in background and processes the update queue. Also starts :attr:`job_queue`, if set.
+        Note:
+            This does *not* start fetching updates. You need either start :attr:`updater` manually
+            or use one of :attr:`run_polling` or :attr:`run_webhook`.
 
         Args:
             ready (:obj:`asyncio.Event`, optional): If specified, the event will be set once the
@@ -325,7 +335,8 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
 
     async def stop(self) -> None:
         """Stops the process after processing any pending updates or tasks created by
-        :meth:`run_asyncio`. Also stops :attr:`job_queue`, if set.
+        :meth:`create_task`. Also stops :attr:`job_queue`, if set and :attr:`updater`, if set and
+        running.
         Finally, calls :meth:`update_persistence` and :meth:`BasePersistence.flush` on
         :attr:`persistence`, if set.
 
@@ -334,6 +345,11 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             even if it's not empty.
         """
         if self.running:
+            self._running = False
+
+            if self.updater and self.updater.running:
+                _logger.debug('Waiting for updater to stop fetching updates')
+                await self.updater.stop()
 
             # Stop listening for new updates and handle all pending ones
             await self.update_queue.put(_STOP_SIGNAL)
@@ -346,8 +362,6 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             _logger.debug('Waiting for `create_task` calls to be processed')
             await asyncio.gather(*self.__create_task_tasks, return_exceptions=True)
 
-            self._running = False
-
             if self.persistence:
                 self.update_persistence()
                 self.persistence.flush()
@@ -358,6 +372,86 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
                 await self.job_queue.stop(wait=True)
                 _logger.debug('JobQueue stopped')
 
+            _logger.debug('Application.stop() complete')
+
+    def run_polling(
+        self,
+        poll_interval: float = 0.0,
+        timeout: int = 10,
+        bootstrap_retries: int = -1,
+        read_timeout: float = 2,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        allowed_updates: List[str] = None,
+        drop_pending_updates: bool = None,
+        ready: asyncio.Event = None,
+    ) -> None:
+        return self.__run(
+            updater_coroutine=self.updater.start_polling(
+                poll_interval=poll_interval,
+                timeout=timeout,
+                bootstrap_retries=bootstrap_retries,
+                read_timeout=read_timeout,
+                write_timeout=write_timeout,
+                connect_timeout=connect_timeout,
+                pool_timeout=pool_timeout,
+                allowed_updates=allowed_updates,
+                drop_pending_updates=drop_pending_updates,
+            ),
+            ready=ready,
+        )
+
+    def run_webhook(
+        self,
+        listen: str = '127.0.0.1',
+        port: int = 80,
+        url_path: str = '',
+        cert: Union[str, Path] = None,
+        key: Union[str, Path] = None,
+        bootstrap_retries: int = 0,
+        webhook_url: str = None,
+        allowed_updates: List[str] = None,
+        drop_pending_updates: bool = None,
+        ip_address: str = None,
+        max_connections: int = 40,
+        ready: asyncio.Event = None,
+    ) -> None:
+        return self.__run(
+            updater_coroutine=self.updater.start_webhook(
+                listen=listen,
+                port=port,
+                url_path=url_path,
+                cert=cert,
+                key=key,
+                bootstrap_retries=bootstrap_retries,
+                drop_pending_updates=drop_pending_updates,
+                webhook_url=webhook_url,
+                allowed_updates=allowed_updates,
+                ip_address=ip_address,
+                max_connections=max_connections,
+            ),
+            ready=ready,
+        )
+
+    def __run(self, updater_coroutine: Coroutine, ready: asyncio.Event = None) -> None:
+        if not self.updater:
+            raise RuntimeError(
+                'Application.run_polling is only available if the application has an Updater.'
+            )
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.initialize())
+        loop.run_until_complete(updater_coroutine)
+        loop.run_until_complete(self.start(ready=ready))
+        try:
+            loop.run_forever()
+        except (KeyboardInterrupt, SystemExit):
+            loop.run_until_complete(self.stop())
+            loop.run_until_complete(self.shutdown())
+        finally:
+            loop.close()
+
     def create_task(self, coroutine: Coroutine, update: object = None) -> asyncio.Task:
         """Thin wrapper around :meth:`asyncio.create_task` that handles exceptions raised by
         the ``coroutine`` with :meth:`dispatch_error`.
@@ -365,7 +459,8 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
         Note:
             * If ``coroutine`` raises an exception, it will be set on the task created by this
               method even though it's handled by :meth:`dispatch_error`.
-            * Tasks created by this methods will be awaited by :meth:`stop`.
+            * If the application is currently running, tasks created by this methods will be
+              awaited by :meth:`stop`.
 
         Args:
             coroutine: The coroutine to run as task.
@@ -390,7 +485,15 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ, PT]):
             )
         )
         self.__create_task_tasks.add(task)
-        task.add_done_callback(self.__create_task_tasks.discard)
+
+        if self.running:
+            task.add_done_callback(self.__create_task_tasks.discard)
+        else:
+            _logger.warning(
+                "Tasks created via `Application.create_task` while the application is not "
+                "running won't be automatically awaited!"
+            )
+
         return task
 
     async def __create_task_callback(

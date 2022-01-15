@@ -44,7 +44,7 @@ from telegram._utils.warnings import warn
 from telegram._utils.defaultvalue import DEFAULT_NONE, DefaultValue, DEFAULT_FALSE
 from telegram.ext import Application, JobQueue, Updater, ExtBot, ContextTypes, CallbackContext
 from telegram.request._httpxrequest import HTTPXRequest
-from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, PT
+from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, PT, UpD
 from telegram.request import BaseRequest
 
 if TYPE_CHECKING:
@@ -71,7 +71,7 @@ CT = TypeVar('CT', bound=Callable[..., Any])
 if TYPE_CHECKING:
     DEF_CCT = CallbackContext.DEFAULT_TYPE  # type: ignore[misc]
     InitBaseBuilder = _BaseBuilder[  # noqa: F821  # pylint: disable=used-before-assignment
-        Application[ExtBot, DEF_CCT, Dict, Dict, Dict, JobQueue, None],
+        Application[ExtBot, Updater, DEF_CCT, Dict, Dict, Dict, JobQueue, None],
         ExtBot,
         DEF_CCT,
         Dict,
@@ -81,7 +81,7 @@ if TYPE_CHECKING:
         None,
     ]
     InitUpdaterBuilder = UpdaterBuilder[  # noqa: F821  # pylint: disable=used-before-assignment
-        Application[ExtBot, DEF_CCT, Dict, Dict, Dict, JobQueue, None],
+        Application[ExtBot, Updater, DEF_CCT, Dict, Dict, Dict, JobQueue, None],
         ExtBot,
         DEF_CCT,
         Dict,
@@ -92,7 +92,7 @@ if TYPE_CHECKING:
     ]
     InitApplicationBuilder = (
         ApplicationBuilder[  # noqa: F821  # pylint: disable=used-before-assignment
-            Application[ExtBot, DEF_CCT, Dict, Dict, Dict, JobQueue, None],
+            Application[ExtBot, Updater, DEF_CCT, Dict, Dict, Dict, JobQueue, None],
             ExtBot,
             DEF_CCT,
             Dict,
@@ -228,10 +228,10 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
 
     def _build_application(
         self: '_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]', stack_level: int = 3
-    ) -> Application[BT, CCT, UD, CD, BD, JQ, PT]:
+    ) -> Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]:
         job_queue = DefaultValue.get_value(self._job_queue)
         application: Application[
-            BT, CCT, UD, CD, BD, JQ, PT
+            BT, UpD, CCT, UD, CD, BD, JQ, PT
         ] = DefaultValue.get_value(  # type: ignore[call-arg]  # pylint: disable=not-callable
             self._application_class
         )(
@@ -270,7 +270,7 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
 
     def _build_updater(
         self: '_BaseBuilder[ODT, BT, Any, Any, Any, Any, Any, Any]',
-    ) -> Updater[BT, ODT]:
+    ) -> Updater[BT]:
         if isinstance(self._application, DefaultValue):
             application = self._build_application(stack_level=4)
             return self._updater_class(
@@ -395,10 +395,10 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self
 
     def _set_bot(
-        self: '_BaseBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, '
+        self: '_BaseBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, '
         'JQ, PT]',
         bot: InBT,
-    ) -> '_BaseBuilder[Application[InBT, CCT, UD, CD, BD, JQ, PT], InBT, CCT, UD, CD, BD, JQ, PT]':
+    ) -> '_BaseBuilder[Application[InBT, UpD, CCT, UD, CD, BD, JQ, PT], InBT, CCT, UD, CD, BD, JQ, PT]':
         for attr, error in _BOT_CHECKS:
             if (
                 not isinstance(getattr(self, f'_{attr}'), DefaultValue)
@@ -422,27 +422,27 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self
 
     def _set_job_queue(
-        self: '_BaseBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: '_BaseBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         job_queue: InJQ,
-    ) -> '_BaseBuilder[Application[BT, CCT, UD, CD, BD, InJQ, PT], BT, CCT, UD, CD, BD, InJQ, PT]':
+    ) -> '_BaseBuilder[Application[BT, UpD, CCT, UD, CD, BD, InJQ, PT], BT, CCT, UD, CD, BD, InJQ, PT]':
         if self._application_check:
             raise RuntimeError(_TWO_ARGS_REQ.format('job_queue', 'Application instance'))
         self._job_queue = job_queue
         return self  # type: ignore[return-value]
 
     def _set_persistence(
-        self: '_BaseBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: '_BaseBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         persistence: InPT,
-    ) -> '_BaseBuilder[Application[BT, CCT, UD, CD, BD, JQ, InPT], BT, CCT, UD, CD, BD, JQ, InPT]':
+    ) -> '_BaseBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, InPT], BT, CCT, UD, CD, BD, JQ, InPT]':
         if self._application_check:
             raise RuntimeError(_TWO_ARGS_REQ.format('persistence', 'Application instance'))
         self._persistence = persistence
         return self  # type: ignore[return-value]
 
     def _set_context_types(
-        self: '_BaseBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: '_BaseBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         context_types: 'ContextTypes[InCCT, InUD, InCD, InBD]',
-    ) -> '_BaseBuilder[Application[BT, InCCT, InUD, InCD, InBD, JQ, PT], BT, InCCT, InUD, InCD, InBD, JQ, PT]':
+    ) -> '_BaseBuilder[Application[BT, UpD, InCCT, InUD, InCD, InBD, JQ, PT], BT, InCCT, InUD, InCD, InBD, JQ, PT]':
         if self._application_check:
             raise RuntimeError(_TWO_ARGS_REQ.format('context_types', 'Application instance'))
         self._context_types = context_types
@@ -456,14 +456,14 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
 
     @overload
     def _set_application(
-        self: BuilderType, application: Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]
-    ) -> '_BaseBuilder[Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
+        self: BuilderType, application: Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT]
+    ) -> '_BaseBuilder[Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
         ...
 
     def _set_application(  # type: ignore[misc]
         self: BuilderType,
-        application: Optional[Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]],
-    ) -> '_BaseBuilder[Optional[Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
+        application: Optional[Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT]],
+    ) -> '_BaseBuilder[Optional[Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT]], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
         for attr, error in _APPLICATION_CHECKS:
             if not isinstance(getattr(self, f'_{attr}'), DefaultValue):
                 raise RuntimeError(_TWO_ARGS_REQ.format('application', error))
@@ -514,7 +514,7 @@ class ApplicationBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
 
     def build(
         self: 'ApplicationBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]',
-    ) -> Application[BT, CCT, UD, CD, BD, JQ, PT]:
+    ) -> Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]:
         """Builds a :class:`telegram.ext.Application` with the provided arguments.
 
         Returns:
@@ -678,10 +678,10 @@ class ApplicationBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_arbitrary_callback_data(arbitrary_callback_data)
 
     def bot(
-        self: 'ApplicationBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, '
+        self: 'ApplicationBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, '
         'JQ, PT]',
         bot: InBT,
-    ) -> 'ApplicationBuilder[Application[InBT, CCT, UD, CD, BD, JQ, PT], InBT, CCT, UD, CD, BD, JQ, PT]':
+    ) -> 'ApplicationBuilder[Application[InBT, UpD, CCT, UD, CD, BD, JQ, PT], InBT, CCT, UD, CD, BD, JQ, PT]':
         """Sets a :class:`telegram.Bot` instance to be used for
         :attr:`telegram.ext.Application.bot`. Instances of subclasses like
         :class:`telegram.ext.ExtBot` are also valid.
@@ -727,9 +727,9 @@ class ApplicationBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_workers(workers)
 
     def job_queue(
-        self: 'ApplicationBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'ApplicationBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         job_queue: InJQ,
-    ) -> 'ApplicationBuilder[Application[BT, CCT, UD, CD, BD, InJQ, PT], BT, CCT, UD, CD, BD, InJQ, PT]':
+    ) -> 'ApplicationBuilder[Application[BT, UpD, CCT, UD, CD, BD, InJQ, PT], BT, CCT, UD, CD, BD, InJQ, PT]':
         """Sets a :class:`telegram.ext.JobQueue` instance to be used for
         :attr:`telegram.ext.Application.job_queue`. If not called, a job queue will be instantiated.
 
@@ -755,9 +755,9 @@ class ApplicationBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_job_queue(job_queue)  # type: ignore[return-value]
 
     def persistence(
-        self: 'ApplicationBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'ApplicationBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         persistence: InPT,
-    ) -> 'ApplicationBuilder[Application[BT, CCT, UD, CD, BD, JQ, InPT], BT, CCT, UD, CD, BD, JQ, InPT]':
+    ) -> 'ApplicationBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, InPT], BT, CCT, UD, CD, BD, JQ, InPT]':
         """Sets a :class:`telegram.ext.BasePersistence` instance to be used for
         :attr:`telegram.ext.Application.persistence`.
 
@@ -778,9 +778,9 @@ class ApplicationBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_persistence(persistence)  # type: ignore[return-value]
 
     def context_types(
-        self: 'ApplicationBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'ApplicationBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         context_types: 'ContextTypes[InCCT, InUD, InCD, InBD]',
-    ) -> 'ApplicationBuilder[Application[BT, InCCT, InUD, InCD, InBD, JQ, PT], BT, InCCT, InUD, InCD, InBD, JQ, PT]':
+    ) -> 'ApplicationBuilder[Application[BT, UpD, InCCT, InUD, InCD, InBD, JQ, PT], BT, InCCT, InUD, InCD, InBD, JQ, PT]':
         """Sets a :class:`telegram.ext.ContextTypes` instance to be used for
         :attr:`telegram.ext.Application.context_types`.
 
@@ -832,7 +832,7 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
 
     def build(
         self: 'UpdaterBuilder[ODT, BT, Any, Any, Any, Any, Any, Any]',
-    ) -> Updater[BT, ODT]:
+    ) -> Updater[BT]:
         """Builds a :class:`telegram.ext.Updater` with the provided arguments.
 
         Returns:
@@ -1019,10 +1019,10 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_arbitrary_callback_data(arbitrary_callback_data)
 
     def bot(
-        self: 'UpdaterBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, '
+        self: 'UpdaterBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, '
         'JQ, PT]',
         bot: InBT,
-    ) -> 'UpdaterBuilder[Application[InBT, CCT, UD, CD, BD, JQ, PT], InBT, CCT, UD, CD, BD, JQ, PT]':
+    ) -> 'UpdaterBuilder[Application[InBT, UpD, CCT, UD, CD, BD, JQ, PT], InBT, CCT, UD, CD, BD, JQ, PT]':
         """Sets a :class:`telegram.Bot` instance to be used for
         :attr:`telegram.ext.Updater.bot`. Instances of subclasses like
         :class:`telegram.ext.ExtBot` are also valid.
@@ -1070,9 +1070,9 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_workers(workers)
 
     def job_queue(
-        self: 'UpdaterBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'UpdaterBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         job_queue: InJQ,
-    ) -> 'UpdaterBuilder[Application[BT, CCT, UD, CD, BD, InJQ, PT], BT, CCT, UD, CD, BD, InJQ, PT]':
+    ) -> 'UpdaterBuilder[Application[BT, UpD, CCT, UD, CD, BD, InJQ, PT], BT, CCT, UD, CD, BD, InJQ, PT]':
         """Sets a :class:`telegram.ext.JobQueue` instance to be used for the
         :attr:`telegram.ext.Updater.application`. If not called, a job queue will be instantiated.
 
@@ -1099,9 +1099,9 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_job_queue(job_queue)  # type: ignore[return-value]
 
     def persistence(
-        self: 'UpdaterBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'UpdaterBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         persistence: InPT,
-    ) -> 'UpdaterBuilder[Application[BT, CCT, UD, CD, BD, JQ, InPT], BT, CCT, UD, CD, BD, JQ, InPT]':
+    ) -> 'UpdaterBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, InPT], BT, CCT, UD, CD, BD, JQ, InPT]':
         """Sets a :class:`telegram.ext.BasePersistence` instance to be used for the
         :attr:`telegram.ext.Updater.application`.
 
@@ -1123,9 +1123,9 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         return self._set_persistence(persistence)  # type: ignore[return-value]
 
     def context_types(
-        self: 'UpdaterBuilder[Application[BT, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
+        self: 'UpdaterBuilder[Application[BT, UpD, CCT, UD, CD, BD, JQ, PT], BT, CCT, UD, CD, BD, JQ, PT]',
         context_types: 'ContextTypes[InCCT, InUD, InCD, InBD]',
-    ) -> 'UpdaterBuilder[Application[BT, InCCT, InUD, InCD, InBD, JQ, PT], BT, InCCT, InUD, InCD, InBD, JQ, PT]':
+    ) -> 'UpdaterBuilder[Application[BT, UpD, InCCT, InUD, InCD, InBD, JQ, PT], BT, InCCT, InUD, InCD, InBD, JQ, PT]':
         """Sets a :class:`telegram.ext.ContextTypes` instance to be used for the
         :attr:`telegram.ext.Updater.application`.
 
@@ -1148,14 +1148,14 @@ class UpdaterBuilder(_BaseBuilder[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
 
     @overload
     def application(
-        self: BuilderType, application: Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]
-    ) -> 'UpdaterBuilder[Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
+        self: BuilderType, application: Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT]
+    ) -> 'UpdaterBuilder[Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
         ...
 
     def application(  # type: ignore[misc]
         self: BuilderType,
-        application: Optional[Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]],
-    ) -> 'UpdaterBuilder[Optional[Application[InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
+        application: Optional[Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT]],
+    ) -> 'UpdaterBuilder[Optional[Application[InBT, UpD, InCCT, InUD, InCD, InBD, InJQ, InPT]], InBT, InCCT, InUD, InCD, InBD, InJQ, InPT]':
         """Sets a :class:`telegram.ext.Application` instance to be used for
         :attr:`telegram.ext.Updater.application`.
         The applications :attr:`telegram.ext.Application.bot` and

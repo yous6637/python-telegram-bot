@@ -50,7 +50,7 @@ from telegram.ext import (
     TypeHandler,
 )
 from telegram._utils.warnings import warn
-from telegram.ext._utils.types import ConversationDict
+from telegram.ext._utils.types import ConversationDict, UpD
 from telegram.ext._utils.types import CCT
 
 if TYPE_CHECKING:
@@ -65,7 +65,7 @@ class _ConversationTimeoutContext:
         self,
         conversation_key: Tuple[int, ...],
         update: Update,
-        application: 'Application[Any, CCT, Any, Any, Any, JobQueue, Any]',
+        application: 'Application[Any, UpD, CCT, Any, Any, Any, JobQueue, Any]',
         callback_context: CallbackContext,
     ):
         self.conversation_key = conversation_key
@@ -546,7 +546,7 @@ class ConversationHandler(Handler[Update, CCT]):
     def _schedule_job(
         self,
         new_state: Union[object, asyncio.Task],
-        application: 'Application[Any, CCT, Any, Any, Any, JobQueue, Any]',
+        application: 'Application[Any, UpD, CCT, Any, Any, Any, JobQueue, Any]',
         update: Update,
         context: CallbackContext,
         conversation_key: Tuple[int, ...],

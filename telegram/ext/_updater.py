@@ -39,7 +39,6 @@ from telegram._utils.defaultvalue import DEFAULT_NONE
 from telegram._utils.types import ODVInput
 from telegram.error import InvalidToken, RetryAfter, TimedOut, Forbidden, TelegramError
 from telegram._utils.warnings import warn
-from telegram.ext import Application
 from telegram.ext._utils.stack import was_called_by
 from telegram.ext._utils.types import BT
 from telegram.ext._utils.webhookhandler import WebhookAppClass, WebhookServer
@@ -48,20 +47,13 @@ if TYPE_CHECKING:
     from telegram.ext._builders import InitUpdaterBuilder
 
 
-_DispType = TypeVar('_DispType', bound=Union[None, Application])
 _UpdaterType = TypeVar('_UpdaterType', bound="Updater")
 
 
-class Updater(Generic[BT, _DispType]):
-    """
-    This class, which employs the :class:`telegram.ext.Application`, provides a frontend to
-    :class:`telegram.Bot` to the programmer, so they can focus on coding the bot. Its purpose is to
-    receive the updates from Telegram and to deliver them to said application. It also runs in a
-    separate thread, so the user can interact with the bot, for example on the command line. The
-    application supports handlers for different kinds of data: Updates from Telegram, basic text
-    commands and even arbitrary types. The updater can be started as a polling service or, for
-    production, use a webhook to receive updates. This is achieved using the WebhookServer and
-    TelegramHandler classes.
+class Updater(Generic[BT]):
+    """This class fetches updates for the bot either via long polling or by starting a webhook
+    server. Received updates are enqueued into the :attr:`update_queue` and may be fetched from
+    there to handle them appropriately.
 
     Note:
          This class may not be initialized directly. Use :class:`telegram.ext.UpdaterBuilder` or
@@ -71,24 +63,21 @@ class Updater(Generic[BT, _DispType]):
 
         * Initialization is now done through the :class:`telegram.ext.UpdaterBuilder`.
         * Removed argument and attribute ``user_sig_handler``
-        * Removed the attributes ``job_queue``, and ``persistence`` - use the corresponding
-          attributes of :attr:`application` instead.
+        * The only arguments and attributes are now :attr:`bot` and :attr:`update_queue` as now
+          the sole purpose of this class is to fetch updates. The entry point to a PTB application
+          is now :class:`telegram.ext.Application`.
 
     Attributes:
         bot (:class:`telegram.Bot`): The bot used with this Updater.
         update_queue (:class:`asyncio.Queue`): Queue for the updates.
-        application (:class:`telegram.ext.Application`): Optional. Application that handles the
-            updates and dispatches them to the handlers.
 
     """
 
     __slots__ = (
-        'application',
         'bot',
         '_logger',
         'update_queue',
         'last_update_id',
-        '_has_stopped_fetching',
         '_running',
         '_httpd',
         '__lock',
@@ -96,11 +85,10 @@ class Updater(Generic[BT, _DispType]):
     )
 
     def __init__(
-        self: 'Updater[BT, _DispType]',
+        self: 'Updater[BT]',
         *,
-        application: _DispType = None,
-        bot: BT = None,
-        update_queue: asyncio.Queue = None,
+        bot: BT,
+        update_queue: asyncio.Queue,
     ):
         if not was_called_by(
             inspect.currentframe(), Path(__file__).parent.resolve() / '_builders.py'
@@ -110,18 +98,11 @@ class Updater(Generic[BT, _DispType]):
                 stacklevel=2,
             )
 
-        self.application = application
-        if self.application:
-            self.bot = self.application.bot
-            self.update_queue = self.application.update_queue
-        else:
-            self.bot = bot
-            self.update_queue = update_queue
+        self.bot = bot
+        self.update_queue = update_queue
 
         self.last_update_id = 0
         self._running = False
-        self._has_stopped_fetching = asyncio.Event()
-        self._has_stopped_fetching.set()
         self._httpd: Optional[WebhookServer] = None
         self.__lock = asyncio.Lock()
         self.__asyncio_tasks: List[asyncio.Task] = []
@@ -143,17 +124,10 @@ class Updater(Generic[BT, _DispType]):
         return self._running
 
     async def initialize(self) -> None:
-        if self.application:
-            await self.application.initialize()
-        else:
-            await self.bot.initialize()
+        await self.bot.initialize()
 
     async def shutdown(self) -> None:
-        if self.application:
-            self._logger.debug('Requesting Application to shut down ...')
-            await self.application.shutdown()
-        else:
-            await self.bot.shutdown()
+        await self.bot.shutdown()
         self._logger.debug('Shut down of Updater complete')
 
     async def __aenter__(self: _UpdaterType) -> _UpdaterType:
@@ -242,15 +216,10 @@ class Updater(Generic[BT, _DispType]):
             if self.running:
                 return self.update_queue
 
-            self._has_stopped_fetching.clear()
             self._running = True
 
             # Create & start tasks
-            application_ready = asyncio.Event()
             polling_ready = asyncio.Event()
-
-            if self.application:
-                self.application.start(ready=application_ready)
 
             self._init_task(
                 self._start_polling,
@@ -269,10 +238,7 @@ class Updater(Generic[BT, _DispType]):
 
             self._logger.debug('Waiting for polling to start')
             await polling_ready.wait()
-            if self.application:
-                self._logger.debug('Waiting for Application to start')
-                await application_ready.wait()
-                self._logger.debug('Application started')
+            self._logger.debug('Polling to started')
 
             return self.update_queue
 
@@ -401,15 +367,11 @@ class Updater(Generic[BT, _DispType]):
             if self.running:
                 return self.update_queue
 
-            self._has_stopped_fetching.clear()
             self._running = True
 
             # Create & start tasks
             webhook_ready = asyncio.Event()
-            application_ready = asyncio.Event()
 
-            if self.application:
-                self.application.start(ready=application_ready)
             await self._start_webhook(
                 listen=listen,
                 port=port,
@@ -428,11 +390,6 @@ class Updater(Generic[BT, _DispType]):
             self._logger.debug('Waiting for webhook server to start')
             await webhook_ready.wait()
             self._logger.debug('Webhook server started')
-
-            if self.application:
-                self._logger.debug('Waiting for Application to start')
-                await application_ready.wait()
-                self._logger.debug('Application started')
 
             # Return the update queue so the main thread can insert updates
             return self.update_queue
@@ -640,23 +597,17 @@ class Updater(Generic[BT, _DispType]):
             )
 
     async def stop(self) -> None:
-        """Stops the polling/webhook, the application and the job queue."""
+        """Stops the polling/webhook."""
         async with self.__lock:
             if self.running:
-                self._logger.debug(
-                    'Stopping Updater %s...', 'and Application ' if self.application else ''
-                )
+                self._logger.debug('Stopping Updater')
 
                 self._running = False
 
                 await self._stop_httpd()
                 await self._join_tasks()
-                if self.application:
-                    self._logger.debug('Waiting for application to stop')
-                    await self.application.stop()
-                    self._logger.debug('Application stopped')
 
-                self._has_stopped_fetching.set()
+                self._logger.debug('Updater.stop() is complete')
 
     async def _stop_httpd(self) -> None:
         if self._httpd:
