@@ -34,7 +34,7 @@ from typing import (
 
 from telegram import Update, CallbackQuery
 from telegram.ext import ExtBot
-from telegram.ext._utils.types import UD, CD, BD, BT, JQ, PT, UpD  # pylint: disable=unused-import
+from telegram.ext._utils.types import UD, CD, BD, BT, JQ  # pylint: disable=unused-import
 
 if TYPE_CHECKING:
     from telegram.ext import Application, Job, JobQueue
@@ -125,7 +125,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         '__dict__',
     )
 
-    def __init__(self: 'CCT', application: 'Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]'):
+    def __init__(self: 'CCT', application: 'Application[BT, CCT, UD, CD, BD, JQ]'):
         """
         Args:
             application (:class:`telegram.ext.Application`):
@@ -140,7 +140,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         self.coroutine: Optional[Coroutine] = None
 
     @property
-    def application(self) -> 'Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]':
+    def application(self) -> 'Application[BT, CCT, UD, CD, BD, JQ]':
         """:class:`telegram.ext.Application`: The application associated with this context."""
         return self._application
 
@@ -249,7 +249,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         cls: Type['CCT'],
         update: object,
         error: Exception,
-        application: 'Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]',
+        application: 'Application[BT, CCT, UD, CD, BD, JQ]',
         job: 'Job' = None,
         coroutine: Coroutine = None,
     ) -> 'CCT':
@@ -288,7 +288,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
     def from_update(
         cls: Type['CCT'],
         update: object,
-        application: 'Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]',
+        application: 'Application[BT, CCT, UD, CD, BD, JQ]',
     ) -> 'CCT':
         """
         Constructs an instance of :class:`telegram.ext.CallbackContext` to be passed to the
@@ -326,7 +326,7 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
     def from_job(
         cls: Type['CCT'],
         job: 'Job',
-        application: 'Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]',
+        application: 'Application[BT, CCT, UD, CD, BD, JQ]',
     ) -> 'CCT':
         """
         Constructs an instance of :class:`telegram.ext.CallbackContext` to be passed to a

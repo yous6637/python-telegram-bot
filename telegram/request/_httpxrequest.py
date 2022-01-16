@@ -79,7 +79,7 @@ class HTTPXRequest(BaseRequest):
                 connections in the connection pool!
     """
 
-    __slots__ = ('_client', '_connection_pool_size', '__pool_semaphore')
+    __slots__ = ('_client', '__pool_semaphore')
 
     def __init__(
         self,
@@ -88,7 +88,7 @@ class HTTPXRequest(BaseRequest):
         connect_timeout: Optional[float] = 5.0,
         read_timeout: Optional[float] = 5.0,
         write_timeout: Optional[float] = 5.0,
-        pool_timeout: Optional[float] = None,
+        pool_timeout: Optional[float] = 1.0,
     ):
         self.__pool_semaphore = asyncio.BoundedSemaphore(connection_pool_size)
         self._pool_timeout = pool_timeout
@@ -99,10 +99,9 @@ class HTTPXRequest(BaseRequest):
             write=write_timeout,
             pool=1,
         )
-        self._connection_pool_size = connection_pool_size
         limits = httpx.Limits(
-            max_connections=self.connection_pool_size + 1,
-            max_keepalive_connections=self.connection_pool_size + 1,
+            max_connections=connection_pool_size,
+            max_keepalive_connections=connection_pool_size,
         )
 
         # Handle socks5 proxies
@@ -130,11 +129,6 @@ class HTTPXRequest(BaseRequest):
             limits=limits,
             transport=transport,
         )
-
-    @property
-    def connection_pool_size(self) -> int:
-        """See :attr:`BaseRequest.connection_pool_size`."""
-        return self._connection_pool_size
 
     async def initialize(self) -> None:
         """See :meth:`BaseRequest.initialize`."""
@@ -170,17 +164,18 @@ class HTTPXRequest(BaseRequest):
         except asyncio.TimeoutError as exc:
             raise TimedOut('Pool timeout') from exc
 
-        out = await self._do_request(
-            url=url,
-            method=method,
-            request_data=request_data,
-            connect_timeout=connect_timeout,
-            read_timeout=read_timeout,
-            write_timeout=write_timeout,
-        )
-
-        self.__pool_semaphore.release()
-        return out
+        try:
+            out = await self._do_request(
+                url=url,
+                method=method,
+                request_data=request_data,
+                connect_timeout=connect_timeout,
+                read_timeout=read_timeout,
+                write_timeout=write_timeout,
+            )
+            return out
+        finally:
+            self.__pool_semaphore.release()
 
     async def _do_request(
         self,
@@ -228,7 +223,8 @@ class HTTPXRequest(BaseRequest):
                     'All connections in the connection pool are occupied. Request was *not* sent '
                     'to Telegram. Adjust connection pool size!',
                 )
-            raise TimedOut('Pool timeout') from err
+                raise TimedOut('Pool timeout') from err
+            raise TimedOut from err
         except httpx.HTTPError as err:
             # HTTPError must come last as its the base httpx exception class
             # TODO p4: do something smart here; for now just raise NetworkError

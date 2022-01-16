@@ -283,6 +283,7 @@ class ExtBot(Bot):
         updates = await super().get_updates(
             offset=offset,
             limit=limit,
+            timeout=timeout,
             read_timeout=read_timeout,
             write_timeout=write_timeout,
             connect_timeout=connect_timeout,

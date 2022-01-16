@@ -18,7 +18,6 @@
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the class Updater, which tries to make creating Telegram bots intuitive."""
 import asyncio
-import inspect
 import logging
 import ssl
 from pathlib import Path
@@ -28,7 +27,6 @@ from typing import (
     List,
     Optional,
     Union,
-    Generic,
     TypeVar,
     TYPE_CHECKING,
     Coroutine,
@@ -38,36 +36,32 @@ from typing import (
 from telegram._utils.defaultvalue import DEFAULT_NONE
 from telegram._utils.types import ODVInput
 from telegram.error import InvalidToken, RetryAfter, TimedOut, Forbidden, TelegramError
-from telegram._utils.warnings import warn
-from telegram.ext._utils.stack import was_called_by
-from telegram.ext._utils.types import BT
 from telegram.ext._utils.webhookhandler import WebhookAppClass, WebhookServer
 
 if TYPE_CHECKING:
-    from telegram.ext._builders import InitUpdaterBuilder
+    from telegram import Bot
 
 
 _UpdaterType = TypeVar('_UpdaterType', bound="Updater")
 
 
-class Updater(Generic[BT]):
+class Updater:
     """This class fetches updates for the bot either via long polling or by starting a webhook
     server. Received updates are enqueued into the :attr:`update_queue` and may be fetched from
     there to handle them appropriately.
 
-    Note:
-         This class may not be initialized directly. Use :class:`telegram.ext.UpdaterBuilder` or
-         :meth:`builder` (for convenience).
-
     .. versionchanged:: 14.0
 
-        * Initialization is now done through the :class:`telegram.ext.UpdaterBuilder`.
         * Removed argument and attribute ``user_sig_handler``
         * The only arguments and attributes are now :attr:`bot` and :attr:`update_queue` as now
           the sole purpose of this class is to fetch updates. The entry point to a PTB application
           is now :class:`telegram.ext.Application`.
 
     Attributes:
+        bot (:class:`telegram.Bot`): The bot used with this Updater.
+        update_queue (:class:`asyncio.Queue`): Queue for the updates.
+
+    Args:
         bot (:class:`telegram.Bot`): The bot used with this Updater.
         update_queue (:class:`asyncio.Queue`): Queue for the updates.
 
@@ -85,19 +79,10 @@ class Updater(Generic[BT]):
     )
 
     def __init__(
-        self: 'Updater[BT]',
-        *,
-        bot: BT,
+        self,
+        bot: 'Bot',
         update_queue: asyncio.Queue,
     ):
-        if not was_called_by(
-            inspect.currentframe(), Path(__file__).parent.resolve() / '_builders.py'
-        ):
-            warn(
-                '`Updater` instances should be built via the `UpdaterBuilder`.',
-                stacklevel=2,
-            )
-
         self.bot = bot
         self.update_queue = update_queue
 
@@ -107,17 +92,6 @@ class Updater(Generic[BT]):
         self.__lock = asyncio.Lock()
         self.__asyncio_tasks: List[asyncio.Task] = []
         self._logger = logging.getLogger(__name__)
-
-    @staticmethod
-    def builder() -> 'InitUpdaterBuilder':
-        """Convenience method. Returns a new :class:`telegram.ext.UpdaterBuilder`.
-
-        .. versionadded:: 14.0
-        """
-        # Unfortunately this needs to be here due to cyclical imports
-        from telegram.ext import UpdaterBuilder  # pylint: disable=import-outside-toplevel
-
-        return UpdaterBuilder()
 
     @property
     def running(self) -> bool:

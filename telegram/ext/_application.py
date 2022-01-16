@@ -45,12 +45,12 @@ from typing import (
 from telegram import Update
 from telegram._utils.types import DVInput, ODVInput
 from telegram.error import TelegramError
-from telegram.ext import BasePersistence, ContextTypes, ExtBot
+from telegram.ext import BasePersistence, ContextTypes, ExtBot, Updater
 from telegram.ext._handler import Handler
 from telegram.ext._callbackdatacache import CallbackDataCache
 from telegram._utils.defaultvalue import DefaultValue, DEFAULT_TRUE, DEFAULT_NONE
 from telegram._utils.warnings import warn
-from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, PT, HandlerCallback, UpD
+from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, HandlerCallback
 from telegram.ext._utils.stack import was_called_by
 
 if TYPE_CHECKING:
@@ -98,7 +98,7 @@ class ApplicationHandlerStop(Exception):
         self.state = state
 
 
-class Application(Generic[BT, UpD, CCT, UD, CD, BD, JQ, PT]):
+class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
     """This class dispatches all kinds of updates to its registered handlers.
 
     Note:
@@ -160,14 +160,14 @@ class Application(Generic[BT, UpD, CCT, UD, CD, BD, JQ, PT]):
     )
 
     def __init__(
-        self: 'Application[BT, UpD, CCT, UD, CD, BD, JQ, PT]',
+        self: 'Application[BT, CCT, UD, CD, BD, JQ]',
         *,
         bot: BT,
         update_queue: asyncio.Queue,
-        updater: UpD,
+        updater: Optional[Updater],
         job_queue: JQ,
         concurrent_updates: Union[bool, int],
-        persistence: PT,
+        persistence: Optional[BasePersistence],
         context_types: ContextTypes[CCT, UD, CD, BD],
     ):
         if not was_called_by(
@@ -387,6 +387,11 @@ class Application(Generic[BT, UpD, CCT, UD, CD, BD, JQ, PT]):
         drop_pending_updates: bool = None,
         ready: asyncio.Event = None,
     ) -> None:
+        if not self.updater:
+            raise RuntimeError(
+                'Application.run_polling is only available if the application has an Updater.'
+            )
+
         return self.__run(
             updater_coroutine=self.updater.start_polling(
                 poll_interval=poll_interval,
@@ -417,6 +422,11 @@ class Application(Generic[BT, UpD, CCT, UD, CD, BD, JQ, PT]):
         max_connections: int = 40,
         ready: asyncio.Event = None,
     ) -> None:
+        if not self.updater:
+            raise RuntimeError(
+                'Application.run_webhook is only available if the application has an Updater.'
+            )
+
         return self.__run(
             updater_coroutine=self.updater.start_webhook(
                 listen=listen,
@@ -435,11 +445,6 @@ class Application(Generic[BT, UpD, CCT, UD, CD, BD, JQ, PT]):
         )
 
     def __run(self, updater_coroutine: Coroutine, ready: asyncio.Event = None) -> None:
-        if not self.updater:
-            raise RuntimeError(
-                'Application.run_polling is only available if the application has an Updater.'
-            )
-
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.initialize())
         loop.run_until_complete(updater_coroutine)

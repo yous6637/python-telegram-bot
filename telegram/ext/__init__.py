@@ -53,7 +53,6 @@ __all__ = (
     'StringRegexHandler',
     'TypeHandler',
     'Updater',
-    'UpdaterBuilder',
 )
 
 from ._extbot import ExtBot
@@ -63,9 +62,9 @@ from ._dictpersistence import DictPersistence
 from ._handler import Handler
 from ._callbackcontext import CallbackContext
 from ._contexttypes import ContextTypes
-from ._application import Application, ApplicationHandlerStop
 from ._jobqueue import JobQueue, Job
 from ._updater import Updater
+from ._application import Application, ApplicationHandlerStop
 from ._callbackqueryhandler import CallbackQueryHandler
 from ._choseninlineresulthandler import ChosenInlineResultHandler
 from ._inlinequeryhandler import InlineQueryHandler
@@ -84,4 +83,4 @@ from ._chatmemberhandler import ChatMemberHandler
 from ._chatjoinrequesthandler import ChatJoinRequestHandler
 from ._defaults import Defaults
 from ._callbackdatacache import CallbackDataCache, InvalidCallbackData
-from ._builders import ApplicationBuilder, UpdaterBuilder
+from ._builders import ApplicationBuilder

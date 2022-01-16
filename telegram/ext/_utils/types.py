@@ -100,12 +100,3 @@ JQ = TypeVar('JQ', bound=Union[None, 'JobQueue'])
 """Type of the job queue.
 
 .. versionadded:: 14.0"""
-PT = TypeVar('PT', bound=Union[None, 'BasePersistence'])
-"""Type of the persistence.
-
-.. versionadded:: 14.0"""
-
-UpD = TypeVar('UpD', bound=Union[None, 'Updater'])
-"""Type of the updater.
-
-.. versionadded:: 14.0"""
