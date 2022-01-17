@@ -505,7 +505,8 @@ class ConversationHandler(Handler[Update, CCT]):
         for handlers in self.states.values():
             for handler in handlers:
                 if isinstance(handler, ConversationHandler) and self.persistence and handler.name:
-                    handler.conversations = self.persistence.get_conversations(handler.name)
+                    # TODO: Find a fix for this
+                    handler.conversations = await self.persistence.get_conversations(handler.name)
 
     def _get_key(self, update: Update) -> Tuple[int, ...]:
         chat = update.effective_chat
@@ -718,13 +719,13 @@ class ConversationHandler(Handler[Update, CCT]):
                     )
 
         if isinstance(self.map_to_parent, dict) and new_state in self.map_to_parent:
-            self._update_state(self.END, conversation_key)
+            await self._update_state(self.END, conversation_key)
             if raise_dp_handler_stop:
                 raise ApplicationHandlerStop(self.map_to_parent.get(new_state))
             return self.map_to_parent.get(new_state)
 
         if current_state != self.WAITING:
-            self._update_state(new_state, conversation_key)
+            await self._update_state(new_state, conversation_key)
 
         if raise_dp_handler_stop:
             # Don't pass the new state here. If we're in a nested conversation, the parent is
@@ -732,20 +733,20 @@ class ConversationHandler(Handler[Update, CCT]):
             raise ApplicationHandlerStop()
         return None
 
-    def _update_state(self, new_state: object, key: Tuple[int, ...]) -> None:
+    async def _update_state(self, new_state: object, key: Tuple[int, ...]) -> None:
         if new_state == self.END:
             with self._conversations_lock:
                 if key in self.conversations:
                     # If there is no key in conversations, nothing is done.
                     del self.conversations[key]
                     if self.persistent and self.persistence and self.name:
-                        self.persistence.update_conversation(self.name, key, None)
+                        await self.persistence.update_conversation(self.name, key, None)
 
         elif isinstance(new_state, asyncio.Task):
             with self._conversations_lock:
                 self.conversations[key] = (self.conversations.get(key), new_state)
                 if self.persistent and self.persistence and self.name:
-                    self.persistence.update_conversation(
+                    await self.persistence.update_conversation(
                         self.name, key, (self.conversations.get(key), new_state)
                     )
 
@@ -758,7 +759,7 @@ class ConversationHandler(Handler[Update, CCT]):
             with self._conversations_lock:
                 self.conversations[key] = new_state
                 if self.persistent and self.persistence and self.name:
-                    self.persistence.update_conversation(self.name, key, new_state)
+                    await self.persistence.update_conversation(self.name, key, new_state)
 
     async def _trigger_timeout(self, context: CallbackContext) -> None:
         job = cast('Job', context.job)

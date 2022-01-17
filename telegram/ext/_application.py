@@ -23,7 +23,6 @@ import logging
 from asyncio import Event
 from collections import defaultdict
 from pathlib import Path
-from threading import Lock
 from types import TracebackType
 from typing import (
     Callable,
@@ -199,8 +198,12 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         self.chat_data: DefaultDict[int, CD] = defaultdict(self.context_types.chat_data)
         self.bot_data = self.context_types.bot_data()
         self.persistence: Optional[BasePersistence] = None
-        self._update_persistence_lock = Lock()
-        self._initialize_persistence(persistence)
+        self._update_persistence_lock = asyncio.Lock()
+
+        if not isinstance(persistence, BasePersistence):
+            raise TypeError("persistence must be based on telegram.ext.BasePersistence")
+
+        self.persistence = persistence
 
         self.handlers: Dict[int, List[Handler]] = {}
         self.error_handlers: Dict[Callable, Union[bool, DefaultValue]] = {}
@@ -227,6 +230,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         await self.bot.initialize()
         if self.updater:
             await self.updater.initialize()
+        await self._initialize_persistence()
 
     async def shutdown(self) -> None:
         await self.bot.shutdown()
@@ -251,34 +255,30 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         # https://docs.python.org/3/reference/datamodel.html?#object.__aexit__
         await self.shutdown()
 
-    def _initialize_persistence(self, persistence: Optional[BasePersistence]) -> None:
-        if not persistence:
+    async def _initialize_persistence(self) -> None:
+        if not self.persistence:
             return
 
-        if not isinstance(persistence, BasePersistence):
-            raise TypeError("persistence must be based on telegram.ext.BasePersistence")
-
-        self.persistence = persistence
         # This raises an exception if persistence.store_data.callback_data is True
         # but self.bot is not an instance of ExtBot - so no need to check that later on
         self.persistence.set_bot(self.bot)
 
         if self.persistence.store_data.user_data:
-            self.user_data = self.persistence.get_user_data()
+            self.user_data = await self.persistence.get_user_data()
             if not isinstance(self.user_data, defaultdict):
                 raise ValueError("user_data must be of type defaultdict")
         if self.persistence.store_data.chat_data:
-            self.chat_data = self.persistence.get_chat_data()
+            self.chat_data = await self.persistence.get_chat_data()
             if not isinstance(self.chat_data, defaultdict):
                 raise ValueError("chat_data must be of type defaultdict")
         if self.persistence.store_data.bot_data:
-            self.bot_data = self.persistence.get_bot_data()
+            self.bot_data = await self.persistence.get_bot_data()
             if not isinstance(self.bot_data, self.context_types.bot_data):
                 raise ValueError(
                     f"bot_data must be of type {self.context_types.bot_data.__name__}"
                 )
         if self.persistence.store_data.callback_data:
-            persistent_data = self.persistence.get_callback_data()
+            persistent_data = await self.persistence.get_callback_data()
             if persistent_data is not None:
                 if not isinstance(persistent_data, tuple) and len(persistent_data) != 2:
                     raise ValueError('callback_data must be a 2-tuple')
@@ -719,17 +719,17 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             if not self.handlers[group]:
                 del self.handlers[group]
 
-    def update_persistence(self, update: object = None) -> None:
+    async def update_persistence(self, update: object = None) -> None:
         """Update :attr:`user_data`, :attr:`chat_data` and :attr:`bot_data` in :attr:`persistence`.
 
         Args:
             update (:class:`telegram.Update`, optional): The update to process. If passed, only the
                 corresponding ``user_data`` and ``chat_data`` will be updated.
         """
-        with self._update_persistence_lock:
-            self.__update_persistence(update)
+        async with self._update_persistence_lock:
+            await self.__update_persistence(update)
 
-    def __update_persistence(self, update: object = None) -> None:
+    async def __update_persistence(self, update: object = None) -> None:
         if self.persistence:
             # We use list() here in order to decouple chat_ids from self.chat_data, as dict view
             # objects will change, when the dict does and we want to loop over chat_ids
@@ -750,28 +750,28 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 try:
                     # Mypy doesn't know that persistence.set_bot (see above) already checks that
                     # self.bot is an instance of ExtBot if callback_data should be stored ...
-                    self.persistence.update_callback_data(
+                    await self.persistence.update_callback_data(
                         self.bot.callback_data_cache.persistence_data  # type: ignore[attr-defined]
                     )
                 except Exception as exc:
-                    self.dispatch_error(update, exc)
+                    await self.dispatch_error(update, exc)
             if self.persistence.store_data.bot_data:
                 try:
-                    self.persistence.update_bot_data(self.bot_data)
+                    await self.persistence.update_bot_data(self.bot_data)
                 except Exception as exc:
-                    self.dispatch_error(update, exc)
+                    await self.dispatch_error(update, exc)
             if self.persistence.store_data.chat_data:
                 for chat_id in chat_ids:
                     try:
-                        self.persistence.update_chat_data(chat_id, self.chat_data[chat_id])
+                        await self.persistence.update_chat_data(chat_id, self.chat_data[chat_id])
                     except Exception as exc:
-                        self.dispatch_error(update, exc)
+                        await self.dispatch_error(update, exc)
             if self.persistence.store_data.user_data:
                 for user_id in user_ids:
                     try:
-                        self.persistence.update_user_data(user_id, self.user_data[user_id])
+                        await self.persistence.update_user_data(user_id, self.user_data[user_id])
                     except Exception as exc:
-                        self.dispatch_error(update, exc)
+                        await self.dispatch_error(update, exc)
 
     def add_error_handler(
         self,
