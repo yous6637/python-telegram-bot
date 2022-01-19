@@ -125,6 +125,15 @@ class TestVenue:
                     chat_id, venue=venue, reply_to_message_id=reply_to_message.message_id
                 )
 
+    @flaky(3, 1)
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('default_bot', [{'protect_content': True}], indirect=True)
+    async def test_send_venue_default_protect_content(self, default_bot, chat_id, venue):
+        protected = await default_bot.send_venue(chat_id, venue=venue)
+        assert protected.has_protected_content
+        unprotected = await default_bot.send_venue(chat_id, venue=venue, protect_content=False)
+        assert not unprotected.has_protected_content
+
     @pytest.mark.asyncio
     async def test_send_venue_without_required(self, bot, chat_id):
         with pytest.raises(ValueError, match='Either venue or latitude, longitude, address and'):

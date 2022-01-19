@@ -37,7 +37,6 @@ from typing import (
 
 from telegram import (
     Bot,
-    ReplyMarkup,
     Message,
     InlineKeyboardMarkup,
     Poll,
@@ -48,7 +47,7 @@ from telegram import (
     InputMedia,
 )
 
-from telegram._utils.types import JSONDict, ODVInput, DVInput
+from telegram._utils.types import JSONDict, ODVInput, DVInput, ReplyMarkup
 from telegram._utils.defaultvalue import DEFAULT_NONE, DefaultValue
 from telegram._utils.datetime import to_timestamp
 from telegram.ext._callbackdatacache import CallbackDataCache
@@ -246,7 +245,7 @@ class ExtBot(Bot):
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
         api_kwargs: JSONDict = None,
-        protect_content: bool = None,
+        protect_content: ODVInput[bool] = DEFAULT_NONE,
     ) -> Union[bool, Message]:
         # We override this method to call self._replace_keyboard and self._insert_callback_data.
         # This covers most methods that have a reply_markup
@@ -395,7 +394,7 @@ class ExtBot(Bot):
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
         api_kwargs: JSONDict = None,
-        protect_content: bool = None,
+        protect_content: ODVInput[bool] = DEFAULT_NONE,
     ) -> MessageId:
         # We override this method to call self._replace_keyboard
         return await super().copy_message(

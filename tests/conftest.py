@@ -29,6 +29,7 @@ from queue import Queue
 from threading import Thread, Event
 from time import sleep
 from typing import Callable, List, Iterable, Any, Dict
+from types import MappingProxyType
 
 import pytest
 import pytz
@@ -235,10 +236,11 @@ def app(_app):
     # Reset the application first
     while not _app.update_queue.empty():
         _app.update_queue.get(False)
-    _app.chat_data = defaultdict(dict)
-    _app.user_data = defaultdict(dict)
+    _app._chat_data = defaultdict(dict)
+    _app._user_data = defaultdict(dict)
+    _app.chat_data = MappingProxyType(_app._chat_data)  # Rebuild the mapping so it updates
+    _app.user_data = MappingProxyType(_app._user_data)
     _app.bot_data = {}
-    _app.persistence = None
     _app.handlers = {}
     _app.error_handlers = {}
     _app.__stop_event = Event()

@@ -60,9 +60,9 @@ class TestAnimation:
     # animation_file_url = 'https://python-telegram-bot.org/static/testfiles/game.gif'
     # Shortened link, the above one is cached with the wrong duration.
     animation_file_url = 'http://bit.ly/2L18jua'
-    file_name = 'game.gif.mp4'
+    file_name = 'game.gif.webm'
     mime_type = 'video/mp4'
-    file_size = 4127
+    file_size = 5859
     caption = "Test *animation*"
 
     def test_slot_behaviour(self, animation, mro_slots):
@@ -78,9 +78,8 @@ class TestAnimation:
         assert animation.file_unique_id != ''
 
     def test_expected_values(self, animation):
-        assert animation.file_size == self.file_size
         assert animation.mime_type == self.mime_type
-        assert animation.file_name == self.file_name
+        assert animation.file_name.startswith('game.gif') == self.file_name.startswith('game.gif')
         assert isinstance(animation.thumb, PhotoSize)
 
     @flaky(3, 1)
@@ -131,7 +130,6 @@ class TestAnimation:
 
         new_file = await bot.get_file(animation.file_id)
 
-        assert new_file.file_size == self.file_size
         assert new_file.file_id == animation.file_id
         assert new_file.file_path.startswith('https://')
 
@@ -155,9 +153,10 @@ class TestAnimation:
         assert message.animation.file_unique_id != ''
 
         assert message.animation.duration == animation.duration
-        assert message.animation.file_name == animation.file_name
+        assert message.animation.file_name.startswith(
+            'game.gif'
+        ) == animation.file_name.startswith('game.gif')
         assert message.animation.mime_type == animation.mime_type
-        assert message.animation.file_size == animation.file_size
 
     @flaky(3, 1)
     @pytest.mark.asyncio
@@ -262,6 +261,14 @@ class TestAnimation:
                 await default_bot.send_animation(
                     chat_id, animation, reply_to_message_id=reply_to_message.message_id
                 )
+
+    @flaky(3, 1)
+    @pytest.mark.parametrize('default_bot', [{'protect_content': True}], indirect=True)
+    def test_send_animation_default_protect_content(self, default_bot, chat_id, animation):
+        animation_protected = default_bot.send_animation(chat_id, animation)
+        assert animation_protected.has_protected_content
+        ani_unprotected = default_bot.send_animation(chat_id, animation, protect_content=False)
+        assert not ani_unprotected.has_protected_content
 
     @flaky(3, 1)
     @pytest.mark.asyncio

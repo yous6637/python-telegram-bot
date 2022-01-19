@@ -41,7 +41,7 @@ async def start(update: Update, context: CallbackContext.DEFAULT_TYPE) -> None:
     await update.message.reply_text('Hi! Use /set <seconds> to set a timer')
 
 
-def alarm(context: CallbackContext.DEFAULT_TYPE) -> None:
+async def alarm(context: CallbackContext.DEFAULT_TYPE) -> None:
     """Send the alarm message."""
     job = context.job
     await context.bot.send_message(job.context, text='Beep!')

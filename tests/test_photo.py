@@ -233,6 +233,15 @@ class TestPhoto:
         assert message.caption == test_markdown_string
         assert message.caption_markdown == escape_markdown(test_markdown_string)
 
+    @flaky(3, 1)
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('default_bot', [{'protect_content': True}], indirect=True)
+    async def test_send_photo_default_protect_content(self, chat_id, default_bot, photo):
+        protected = await default_bot.send_photo(chat_id, photo)
+        assert protected.has_protected_content
+        unprotected = await default_bot.send_photo(chat_id, photo, protect_content=False)
+        assert not unprotected.has_protected_content
+
     @pytest.mark.asyncio
     async def test_send_photo_local_files(self, monkeypatch, bot, chat_id):
         # For just test that the correct paths are passed as we have no local bot API set up

@@ -115,6 +115,17 @@ class TestContact:
                     chat_id, contact=contact, reply_to_message_id=reply_to_message.message_id
                 )
 
+    @flaky(3, 1)
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('default_bot', [{'protect_content': True}], indirect=True)
+    async def test_send_contact_default_protect_content(self, chat_id, default_bot, contact):
+        protected = await default_bot.send_contact(chat_id, contact=contact)
+        assert protected.has_protected_content
+        unprotected = await default_bot.send_contact(
+            chat_id, contact=contact, protect_content=False
+        )
+        assert not unprotected.has_protected_content
+
     @pytest.mark.asyncio
     async def test_send_contact_without_required(self, bot, chat_id):
         with pytest.raises(ValueError, match='Either contact or phone_number and first_name'):
