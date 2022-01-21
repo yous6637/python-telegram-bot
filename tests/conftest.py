@@ -60,7 +60,7 @@ from telegram.ext import (
     Defaults,
     ExtBot,
     ApplicationBuilder,
-    UpdaterBuilder,
+    Updater,
 )
 from telegram.ext.filters import UpdateFilter, MessageFilter
 from telegram.error import BadRequest, TimedOut, RetryAfter
@@ -160,7 +160,9 @@ class DictApplication(Application):
 @pytest.mark.asyncio
 async def bot(bot_info):
     async with DictExtBot(
-        bot_info['token'], private_key=PRIVATE_KEY, request=TestHttpxRequest(8)
+        bot_info['token'],
+        private_key=PRIVATE_KEY,
+        request=(TestHttpxRequest(1), TestHttpxRequest(8)),
     ) as _bot:
         yield _bot
 
@@ -252,7 +254,7 @@ def app(_app):
 
 @pytest.fixture(scope='function')
 def updater(bot):
-    up = UpdaterBuilder().bot(bot).workers(2).build()
+    up = Updater(bot=bot, update_queue=asyncio.Queue())
     yield up
     if up.running:
         up.stop()
@@ -289,7 +291,12 @@ def make_bot(bot_info, **kwargs):
     """
     Tests are executed on tg.ext.ExtBot, as that class only extends the functionality of tg.bot
     """
-    _bot = ExtBot(bot_info['token'], private_key=PRIVATE_KEY, request=TestHttpxRequest(), **kwargs)
+    _bot = ExtBot(
+        bot_info['token'],
+        private_key=PRIVATE_KEY,
+        request=(TestHttpxRequest(), TestHttpxRequest(8)),
+        **kwargs,
+    )
     return _bot
 
 

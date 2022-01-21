@@ -34,6 +34,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    AnyStr,
 )
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     from telegram._utils.defaultvalue import DefaultValue  # noqa: F401
     from telegram import InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
 
-FileLike = Union[IO, 'InputFile']
+FileLike = Union[IO[AnyStr], 'InputFile']
 """Either an open file handler or a :class:`telegram.InputFile`."""
 
 FilePathInput = Union[str, Path]

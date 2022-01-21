@@ -23,7 +23,7 @@ import imghdr
 import logging
 import mimetypes
 from pathlib import Path
-from typing import IO, Optional, Union
+from typing import IO, Optional, Union, AnyStr
 from uuid import uuid4
 
 from telegram._utils.types import FieldTuple
@@ -53,11 +53,15 @@ class InputFile:
 
     __slots__ = ('filename', 'attach_name', 'input_file_content', 'mimetype')
 
-    def __init__(self, obj: Union[IO, bytes], filename: str = None):
+    def __init__(self, obj: Union[IO[AnyStr], bytes], filename: str = None):
         if isinstance(obj, bytes):
             self.input_file_content = obj
         else:
-            self.input_file_content = obj.read()
+            content = obj.read()
+            if isinstance(content, str):
+                self.input_file_content = content.encode('utf-8')
+            else:
+                self.input_file_content = content
         self.attach_name = 'attached' + uuid4().hex
 
         if (
