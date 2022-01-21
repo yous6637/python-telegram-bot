@@ -513,9 +513,9 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 coroutine=coroutine, update=update, is_error_handler=is_error_handler
             )
         )
-        self.__create_task_tasks.add(task)
 
         if self.running:
+            self.__create_task_tasks.add(task)
             task.add_done_callback(self.__create_task_tasks.discard)
         else:
             _logger.warning(

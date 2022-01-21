@@ -355,7 +355,8 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         to be used for :attr:`telegram.ext.Application.bot`.
 
         .. seealso:: `passportbot.py <https://github.com/python-telegram-bot/python-telegram-bot\
-            /tree/master/examples#passportbotpy>`_, `Telegram Passports <https://git.io/fAvYd>`_
+            /tree/master/examples#passportbotpy>`_, `Telegram Passports <https://github.com/python-telegram-bot\
+            /python-telegram-bot/wiki/Telegram-Passport>`_
 
         Args:
             private_key (:obj:`bytes` | :obj:`str` | :obj:`pathlib.Path`): The private key or the
@@ -385,7 +386,8 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         """Sets the :class:`telegram.ext.Defaults` object to be used for
         :attr:`telegram.ext.Application.bot`.
 
-        .. seealso:: `Adding Defaults <https://git.io/J0FGR>`_
+        .. seealso:: `Adding Defaults <https://github.com/python-telegram-bot/python-telegram-bot\
+            /wiki/Adding-defaults-to-your-bot>`_
 
         Args:
             defaults (:class:`telegram.ext.Defaults`): The defaults.
@@ -406,8 +408,10 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         cached in memory. If not called, only strings can be used as callback data and no data will
         be stored in memory.
 
-        .. seealso:: `Arbitrary callback_data <https://git.io/JGBDI>`_,
-            `arbitrarycallbackdatabot.py <https://git.io/J0FBv>`_
+        .. seealso:: `Arbitrary callback_data <https://github.com/python-telegram-bot\
+            /python-telegram-bot/wiki/Arbitrary-callback_data>`_,
+            `arbitrarycallbackdatabot.py <https://github.com/python-telegram-bot\
+                /python-telegram-bot/tree/master/examples#arbitrarycallbackdatabotpy>`_
 
         Args:
             arbitrary_callback_data (:obj:`bool` | :obj:`int`): If :obj:`True` is passed, the
@@ -486,7 +490,9 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         :attr:`telegram.ext.Application.job_queue`. If not called, a job queue will be
         instantiated.
 
-        .. seealso:: `JobQueue <https://git.io/J0FCN>`_, `timerbot.py <https://git.io/J0FWf>`_
+        .. seealso:: `JobQueue <https://github.com/python-telegram-bot/python-telegram-bot/wiki\
+            /Extensions-%E2%80%93-JobQueue>`_, `timerbot.py <https://github.com\
+                /python-telegram-bot/python-telegram-bot/tree/master/examples#timerbotpy>`_
 
         Note:
             * :meth:`telegram.ext.JobQueue.set_application` will be called automatically by
@@ -512,8 +518,10 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         """Sets a :class:`telegram.ext.BasePersistence` instance to be used for
         :attr:`telegram.ext.Application.persistence`.
 
-        .. seealso:: `Making your bot persistent <https://git.io/J0FWM>`_,
-            `persistentconversationbot.py <https://git.io/J0FW7>`_
+        .. seealso:: `Making your bot persistent <https://github.com/python-telegram-bot/python-telegram-bot\
+            /wiki/Making-your-bot-persistent>`_,
+            `persistentconversationbot.py <https://github.com/python-telegram-bot/python-telegram-bot/tree\
+                /master/examples#persistentconversationbotpy>`_
 
         Warning:
             If a :class:`telegram.ext.ContextTypes` instance is set via :meth:`context_types`,
@@ -536,7 +544,8 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         """Sets a :class:`telegram.ext.ContextTypes` instance to be used for
         :attr:`telegram.ext.Application.context_types`.
 
-        .. seealso:: `contexttypesbot.py <https://git.io/J0F8d>`_
+        .. seealso:: `contexttypesbot.py <https://github.com/python-telegram-bot/python-telegram-bot/tree/master\
+            /examples#contexttypesbotpy>`_
 
         Args:
             context_types (:class:`telegram.ext.ContextTypes`, optional): The context types.
