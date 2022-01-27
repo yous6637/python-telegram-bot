@@ -135,11 +135,12 @@ class TestInputFile:
         assert out.read().decode('utf-8') == 'PTB Rocks! ⅞'
 
     @pytest.mark.asyncio
-    async def test_send_string_io(self, bot, chat_id):
+    async def test_send_string(self, bot, chat_id):
         # We test this here and not at the respective test modules because it's not worth
         # duplicating the test for the different methods
-        with data_file('text_file.txt').open(mode='r', encoding='utf-8') as file:
-            message = await bot.send_document(chat_id, file)
+        message = await bot.send_document(
+            chat_id, InputFile(data_file('text_file.txt').read_text(encoding='utf-8'))
+        )
         out = BytesIO()
 
         assert await (await message.document.get_file()).download(out=out)

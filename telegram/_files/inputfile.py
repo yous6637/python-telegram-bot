@@ -38,6 +38,9 @@ class InputFile:
     Args:
         obj (:obj:`File handler` | :obj:`bytes`): An open file descriptor or the files content as
             bytes.
+
+            Note:
+                If ``obj`` is a string, it will be encoded as bytes via ``obj.encode('utf-8')``.
         filename (:obj:`str`, optional): Filename for this InputFile.
 
     Raises:
@@ -53,15 +56,13 @@ class InputFile:
 
     __slots__ = ('filename', 'attach_name', 'input_file_content', 'mimetype')
 
-    def __init__(self, obj: Union[IO[AnyStr], bytes], filename: str = None):
+    def __init__(self, obj: Union[IO[bytes], bytes, str], filename: str = None):
         if isinstance(obj, bytes):
             self.input_file_content = obj
+        elif isinstance(obj, str):
+            self.input_file_content = obj.encode('utf-8')
         else:
-            content = obj.read()
-            if isinstance(content, str):
-                self.input_file_content = content.encode('utf-8')
-            else:
-                self.input_file_content = content
+            self.input_file_content = obj.read()
         self.attach_name = 'attached' + uuid4().hex
 
         if (
