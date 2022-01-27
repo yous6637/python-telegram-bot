@@ -224,7 +224,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         self.persistence: Optional[BasePersistence] = None
         self._update_persistence_lock = asyncio.Lock()
 
-        if not isinstance(persistence, BasePersistence):
+        if persistence and not isinstance(persistence, BasePersistence):
             raise TypeError("persistence must be based on telegram.ext.BasePersistence")
 
         self.persistence = persistence

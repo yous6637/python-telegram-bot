@@ -349,6 +349,17 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
         """
         self = cls(application)  # type: ignore[arg-type]
         self.job = job
+
+        if job.chat_id:
+            self._chat_id_and_data = (
+                job.chat_id,
+                application.chat_data[job.chat_id],  # pylint: disable=protected-access
+            )
+        if job.user_id:
+            self._user_id_and_data = (
+                job.user_id,
+                application.user_data[job.user_id],  # pylint: disable=protected-access
+            )
         return self
 
     def update(self, data: Dict[str, object]) -> None:

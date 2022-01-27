@@ -120,6 +120,8 @@ class JobQueue:
         when: Union[float, datetime.timedelta, datetime.datetime, datetime.time],
         context: object = None,
         name: str = None,
+        chat_id: int = None,
+        user_id: int = None,
         job_kwargs: JSONDict = None,
     ) -> 'Job':
         """Creates a new :class:`Job` instance that runs once and adds it to the queue.
@@ -144,6 +146,17 @@ class JobQueue:
                   tomorrow. If the timezone (:attr:`datetime.time.tzinfo`) is :obj:`None`, the
                   default timezone of the bot will be used.
 
+            chat_id (:obj:`int`, optional): Chat id of the chat associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.chat_data` will
+                be available in the callback.
+                
+                .. versionadded:: 14.0
+
+            user_id (:obj:`int`, optional): User id of the user associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.user_data` will
+                be available in the callback.
+                
+                .. versionadded:: 14.0
             context (:obj:`object`, optional): Additional data needed for the callback function.
                 Can be accessed through :attr:`Job.context` in the callback. Defaults to
                 :obj:`None`.
@@ -161,7 +174,7 @@ class JobQueue:
             job_kwargs = {}
 
         name = name or callback.__name__
-        job = Job(callback, context, name)
+        job = Job(callback=callback, context=context, name=name, chat_id=chat_id, user_id=user_id)
         date_time = self._parse_time_input(when, shift_day=True)
 
         j = self.scheduler.add_job(
@@ -185,6 +198,8 @@ class JobQueue:
         last: Union[float, datetime.timedelta, datetime.datetime, datetime.time] = None,
         context: object = None,
         name: str = None,
+        chat_id: int = None,
+        user_id: int = None,
         job_kwargs: JSONDict = None,
     ) -> 'Job':
         """Creates a new :class:`Job` instance that runs at specified intervals and adds it to the
@@ -235,6 +250,17 @@ class JobQueue:
                 :obj:`None`.
             name (:obj:`str`, optional): The name of the new job. Defaults to
                 ``callback.__name__``.
+            chat_id (:obj:`int`, optional): Chat id of the chat associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.chat_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
+
+            user_id (:obj:`int`, optional): User id of the user associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.user_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
             job_kwargs (:obj:`dict`, optional): Arbitrary keyword arguments to pass to the
                 :meth:`apscheduler.schedulers.base.BaseScheduler.add_job()`.
 
@@ -247,7 +273,7 @@ class JobQueue:
             job_kwargs = {}
 
         name = name or callback.__name__
-        job = Job(callback, context, name)
+        job = Job(callback=callback, context=context, name=name, chat_id=chat_id, user_id=user_id)
 
         dt_first = self._parse_time_input(first)
         dt_last = self._parse_time_input(last)
@@ -279,6 +305,8 @@ class JobQueue:
         day: int,
         context: object = None,
         name: str = None,
+        chat_id: int = None,
+        user_id: int = None,
         job_kwargs: JSONDict = None,
     ) -> 'Job':
         """Creates a new :class:`Job` that runs on a monthly basis and adds it to the queue.
@@ -305,6 +333,17 @@ class JobQueue:
                 :obj:`None`.
             name (:obj:`str`, optional): The name of the new job. Defaults to
                 ``callback.__name__``.
+            chat_id (:obj:`int`, optional): Chat id of the chat associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.chat_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
+
+            user_id (:obj:`int`, optional): User id of the user associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.user_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
             job_kwargs (:obj:`dict`, optional): Arbitrary keyword arguments to pass to the
                 :meth:`apscheduler.schedulers.base.BaseScheduler.add_job()`.
 
@@ -317,7 +356,7 @@ class JobQueue:
             job_kwargs = {}
 
         name = name or callback.__name__
-        job = Job(callback, context, name)
+        job = Job(callback=callback, context=context, name=name, chat_id=chat_id, user_id=user_id)
 
         j = self.scheduler.add_job(
             job.run,
@@ -341,6 +380,8 @@ class JobQueue:
         days: Tuple[int, ...] = tuple(range(7)),
         context: object = None,
         name: str = None,
+        chat_id: int = None,
+        user_id: int = None,
         job_kwargs: JSONDict = None,
     ) -> 'Job':
         """Creates a new :class:`Job` that runs on a daily basis and adds it to the queue.
@@ -363,6 +404,17 @@ class JobQueue:
                 :obj:`None`.
             name (:obj:`str`, optional): The name of the new job. Defaults to
                 ``callback.__name__``.
+            chat_id (:obj:`int`, optional): Chat id of the chat associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.chat_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
+
+            user_id (:obj:`int`, optional): User id of the user associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.user_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
             job_kwargs (:obj:`dict`, optional): Arbitrary keyword arguments to pass to the
                 :meth:`apscheduler.schedulers.base.BaseScheduler.add_job()`.
 
@@ -375,7 +427,7 @@ class JobQueue:
             job_kwargs = {}
 
         name = name or callback.__name__
-        job = Job(callback, context, name)
+        job = Job(callback=callback, context=context, name=name, chat_id=chat_id, user_id=user_id)
 
         j = self.scheduler.add_job(
             job.run,
@@ -399,6 +451,8 @@ class JobQueue:
         job_kwargs: JSONDict,
         context: object = None,
         name: str = None,
+        chat_id: int = None,
+        user_id: int = None,
     ) -> 'Job':
         """Creates a new custom defined :class:`Job`.
 
@@ -412,6 +466,17 @@ class JobQueue:
                 :obj:`None`.
             name (:obj:`str`, optional): The name of the new job. Defaults to
                 ``callback.__name__``.
+            chat_id (:obj:`int`, optional): Chat id of the chat associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.chat_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
+
+            user_id (:obj:`int`, optional): User id of the user associated with this job. If
+                passed, the corresponding :attr:`~telegram.ext.CallbackContext.user_data` will
+                be available in the callback.
+
+                .. versionadded:: 14.0
 
         Returns:
             :class:`telegram.ext.Job`: The new :class:`Job` instance that has been added to the job
@@ -419,7 +484,7 @@ class JobQueue:
 
         """
         name = name or callback.__name__
-        job = Job(callback, context, name)
+        job = Job(callback=callback, context=context, name=name, chat_id=chat_id, user_id=user_id)
 
         j = self.scheduler.add_job(job, args=(self.application,), name=name, **job_kwargs)
 
@@ -488,12 +553,24 @@ class Job:
             accessed through :attr:`Job.context` in the callback. Defaults to :obj:`None`.
         name (:obj:`str`, optional): The name of the new job. Defaults to ``callback.__name__``.
         job (:class:`apscheduler.job.Job`, optional): The APS Job this job is a wrapper for.
+        chat_id (:obj:`int`, optional): Chat id of the chat that this job is associated with.
+
+            ..versionadded:: 14.0
+        user_id (:obj:`int`, optional): User id of the user that this job is associated with.
+
+            ..versionadded:: 14.0
 
     Attributes:
         callback (:obj:`callable`): The callback function that should be executed by the new job.
         context (:obj:`object`): Optional. Additional data needed for the callback function.
         name (:obj:`str`): Optional. The name of the new job.
         job (:class:`apscheduler.job.Job`): Optional. The APS Job this job is a wrapper for.
+        chat_id (:obj:`int`): Optional. Chat id of the chat that this job is associated with.
+
+            ..versionadded:: 14.0
+        user_id (:obj:`int`): Optional. User id of the user that this job is associated with.
+
+            ..versionadded:: 14.0
     """
 
     __slots__ = (
@@ -503,6 +580,8 @@ class Job:
         '_removed',
         '_enabled',
         'job',
+        'chat_id',
+        'user_id',
     )
 
     def __init__(
@@ -511,11 +590,15 @@ class Job:
         context: object = None,
         name: str = None,
         job: APSJob = None,
+        chat_id: int = None,
+        user_id: int = None,
     ):
 
         self.callback = callback
         self.context = context
         self.name = name or callback.__name__
+        self.chat_id = chat_id
+        self.user_id = user_id
 
         self._removed = False
         self._enabled = False
@@ -538,15 +621,8 @@ class Job:
             await asyncio.shield(
                 self.callback(application.context_types.context.from_job(self, application))
             )
-
-        # TODO: probably run dispatch_error and update_persistence via `run_async` since those
-        #   shouldn't count towards the jobs execution time
-        #   Additionally double check with the Application.process_update logic on whether we want
-        #   to update the persistence if the job failed
         except Exception as exc:
             await application.create_task(application.dispatch_error(None, exc, job=self))
-        finally:
-            application.update_persistence(None)
 
     def schedule_removal(self) -> None:
         """
