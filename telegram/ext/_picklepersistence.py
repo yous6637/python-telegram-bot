@@ -61,6 +61,12 @@ class PicklePersistence(BasePersistence[UD, CD, BD]):
         store_data (:class:`PersistenceInput`, optional): Specifies which kinds of data will be
             saved by this persistence instance. By default, all available kinds of data will be
             saved.
+        update_interval (:obj:`int` | :obj:`float:, optional): The
+            :class:`~telegram.ext.Application` will update
+            the persistence in regular intervals. This parameter specifies the time (in seconds) to
+            wait between two consecutive runs of updating the persistence. Defaults to 60 seconds.
+
+            .. versionadded:: 14.0
         single_file (:obj:`bool`, optional): When :obj:`False` will store 5 separate files of
             `filename_user_data`, `filename_bot_data`, `filename_chat_data`,
             `filename_callback_data` and `filename_conversations`. Default is :obj:`True`.
@@ -112,6 +118,7 @@ class PicklePersistence(BasePersistence[UD, CD, BD]):
         store_data: PersistenceInput = None,
         single_file: bool = True,
         on_flush: bool = False,
+        update_interval: float = 60,
     ):
         ...
 
@@ -122,6 +129,7 @@ class PicklePersistence(BasePersistence[UD, CD, BD]):
         store_data: PersistenceInput = None,
         single_file: bool = True,
         on_flush: bool = False,
+        update_interval: float = 60,
         context_types: ContextTypes[Any, UD, CD, BD] = None,
     ):
         ...
@@ -132,9 +140,10 @@ class PicklePersistence(BasePersistence[UD, CD, BD]):
         store_data: PersistenceInput = None,
         single_file: bool = True,
         on_flush: bool = False,
+        update_interval: float = 60,
         context_types: ContextTypes[Any, UD, CD, BD] = None,
     ):
-        super().__init__(store_data=store_data)
+        super().__init__(store_data=store_data, update_interval=update_interval)
         self.filepath = Path(filepath)
         self.single_file = single_file
         self.on_flush = on_flush

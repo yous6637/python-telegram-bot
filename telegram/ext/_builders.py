@@ -355,8 +355,8 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         to be used for :attr:`telegram.ext.Application.bot`.
 
         .. seealso:: `passportbot.py <https://github.com/python-telegram-bot/python-telegram-bot\
-            /tree/master/examples#passportbotpy>`_, `Telegram Passports <https://github.com/python-telegram-bot\
-            /python-telegram-bot/wiki/Telegram-Passport>`_
+            /tree/master/examples#passportbotpy>`_, `Telegram Passports
+            <https://github.com/python-telegram-bot/python-telegram-bot/wiki/Telegram-Passport>`_
 
         Args:
             private_key (:obj:`bytes` | :obj:`str` | :obj:`pathlib.Path`): The private key or the
@@ -518,10 +518,10 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         """Sets a :class:`telegram.ext.BasePersistence` instance to be used for
         :attr:`telegram.ext.Application.persistence`.
 
-        .. seealso:: `Making your bot persistent <https://github.com/python-telegram-bot/python-telegram-bot\
-            /wiki/Making-your-bot-persistent>`_,
-            `persistentconversationbot.py <https://github.com/python-telegram-bot/python-telegram-bot/tree\
-                /master/examples#persistentconversationbotpy>`_
+        .. seealso:: `Making your bot persistent <https://github.com/python-telegram-bot\
+            /python-telegram-bot/wiki/Making-your-bot-persistent>`_,
+            `persistentconversationbot.py <https://github.com/python-telegram-bot\
+                /python-telegram-bot/tree/master/examples#persistentconversationbotpy>`_
 
         Warning:
             If a :class:`telegram.ext.ContextTypes` instance is set via :meth:`context_types`,
@@ -544,8 +544,8 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         """Sets a :class:`telegram.ext.ContextTypes` instance to be used for
         :attr:`telegram.ext.Application.context_types`.
 
-        .. seealso:: `contexttypesbot.py <https://github.com/python-telegram-bot/python-telegram-bot/tree/master\
-            /examples#contexttypesbotpy>`_
+        .. seealso:: `contexttypesbot.py <https://github.com/python-telegram-bot\
+            /python-telegram-bot/tree/master/examples#contexttypesbotpy>`_
 
         Args:
             context_types (:class:`telegram.ext.ContextTypes`, optional): The context types.

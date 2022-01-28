@@ -23,7 +23,7 @@ import imghdr
 import logging
 import mimetypes
 from pathlib import Path
-from typing import IO, Optional, Union, AnyStr
+from typing import IO, Optional, Union
 from uuid import uuid4
 
 from telegram._utils.types import FieldTuple

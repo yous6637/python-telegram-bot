@@ -34,7 +34,6 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
-    AnyStr,
 )
 
 if TYPE_CHECKING:

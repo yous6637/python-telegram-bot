@@ -92,7 +92,7 @@ class ConversationHandler(Handler[Update, CCT]):
         Finally, ``ConversationHandler``, does *not* handle (edited) channel posts.
 
     .. _`FAQ`: https://github.com/python-telegram-bot/python-telegram-bot/wiki\
-        /Frequently-Asked-Questions#what-do-the-per_-settings-in-conversationhandler-do
+        /Frequently-Asked-Questions#what-do-the-per_-settings-in-conversation handler-do
 
     The first collection, a ``list`` named :attr:`entry_points`, is used to initiate the
     conversation, for example with a :class:`telegram.ext.CommandHandler` or
@@ -169,13 +169,13 @@ class ConversationHandler(Handler[Update, CCT]):
                  from what you expect.
 
 
-        name (:obj:`str`, optional): The name for this conversationhandler. Required for
+        name (:obj:`str`, optional): The name for this conversation handler. Required for
             persistence.
         persistent (:obj:`bool`, optional): If the conversations dict for this handler should be
             saved. Name is required and persistence has to be set in :class:`telegram.ext.Updater`
         map_to_parent (Dict[:obj:`object`, :obj:`object`], optional): A :obj:`dict` that can be
-            used to instruct a nested conversationhandler to transition into a mapped state on
-            its parent conversationhandler in place of a specified nested state.
+            used to instruct a nested conversation handler to transition into a mapped state on
+            its parent conversation handler in place of a specified nested state.
         block (:obj:`bool`, optional): Pass :obj:`True` to *override* the
             :attr:`Handler.block` setting of all handlers (in :attr:`entry_points`,
             :attr:`states` and :attr:`fallbacks`).
@@ -301,7 +301,7 @@ class ConversationHandler(Handler[Update, CCT]):
         per_faq_link = (
             " Read this FAQ entry to learn more about the per_* settings: "
             "https://github.com/python-telegram-bot/python-telegram-bot/wiki"
-            "/Frequently-Asked-Questions#what-do-the-per_-settings-in-conversationhandler-do."
+            "/Frequently-Asked-Questions#what-do-the-per_-settings-in-conversation handler-do."
         )
 
         for handler in all_handlers:
@@ -504,12 +504,14 @@ class ConversationHandler(Handler[Update, CCT]):
     @conversations.setter
     def conversations(self, value: ConversationDict) -> None:
         self._conversations = value
-        # Set conversations for nested conversations
-        for handlers in self.states.values():
-            for handler in handlers:
-                if isinstance(handler, ConversationHandler) and self.persistence and handler.name:
-                    # TODO: Find a fix for this
-                    handler.conversations = await self.persistence.get_conversations(handler.name)
+        # # Set conversations for nested conversations
+        # for handlers in self.states.values():
+        #     for handler in handlers:
+        #         if isinstance(handler, ConversationHandler) and self.persistence and
+        #         handler.name:
+        #             # TODO: Find a fix for this
+        #             handler.conversations = await self.persistence.get_conversations(
+        #             handler.name)
 
     def _get_key(self, update: Update) -> Tuple[int, ...]:
         chat = update.effective_chat
@@ -578,7 +580,7 @@ class ConversationHandler(Handler[Update, CCT]):
     # pylint: disable=too-many-return-statements
     def check_update(self, update: object) -> Optional[CheckUpdateType]:
         """
-        Determines whether an update should be handled by this conversationhandler, and if so in
+        Determines whether an update should be handled by this conversation handler, and if so in
         which state the conversation currently is.
 
         Args:
@@ -617,11 +619,11 @@ class ConversationHandler(Handler[Update, CCT]):
 
             # if not then handle WAITING state instead
             else:
-                hdlrs = self.states.get(self.WAITING, [])
-                for hdlr in hdlrs:
-                    check = hdlr.check_update(update)
+                handlers = self.states.get(self.WAITING, [])
+                for handler in handlers:
+                    check = handler.check_update(update)
                     if check is not None and check is not False:
-                        return self.WAITING, key, hdlr, check
+                        return self.WAITING, key, handler, check
                 return None
 
         self._logger.debug('Selecting conversation %s with state %s', str(key), str(state))
@@ -722,13 +724,13 @@ class ConversationHandler(Handler[Update, CCT]):
                     )
 
         if isinstance(self.map_to_parent, dict) and new_state in self.map_to_parent:
-            await self._update_state(self.END, conversation_key)
+            self._update_state(self.END, conversation_key)
             if raise_dp_handler_stop:
                 raise ApplicationHandlerStop(self.map_to_parent.get(new_state))
             return self.map_to_parent.get(new_state)
 
         if current_state != self.WAITING:
-            await self._update_state(new_state, conversation_key)
+            self._update_state(new_state, conversation_key)
 
         if raise_dp_handler_stop:
             # Don't pass the new state here. If we're in a nested conversation, the parent is
@@ -736,22 +738,22 @@ class ConversationHandler(Handler[Update, CCT]):
             raise ApplicationHandlerStop()
         return None
 
-    async def _update_state(self, new_state: object, key: Tuple[int, ...]) -> None:
+    def _update_state(self, new_state: object, key: Tuple[int, ...]) -> None:
         if new_state == self.END:
             with self._conversations_lock:
                 if key in self.conversations:
                     # If there is no key in conversations, nothing is done.
                     del self.conversations[key]
-                    if self.persistent and self.persistence and self.name:
-                        await self.persistence.update_conversation(self.name, key, None)
+                    # if self.persistent and self.persistence and self.name:
+                    #     self.persistence.update_conversation(self.name, key, None)
 
         elif isinstance(new_state, asyncio.Task):
             with self._conversations_lock:
                 self.conversations[key] = (self.conversations.get(key), new_state)
-                if self.persistent and self.persistence and self.name:
-                    await self.persistence.update_conversation(
-                        self.name, key, (self.conversations.get(key), new_state)
-                    )
+                # if self.persistent and self.persistence and self.name:
+                #     await self.persistence.update_conversation(
+                #         self.name, key, (self.conversations.get(key), new_state)
+                #     )
 
         elif new_state is not None:
             if new_state not in self.states:
@@ -761,8 +763,8 @@ class ConversationHandler(Handler[Update, CCT]):
                 )
             with self._conversations_lock:
                 self.conversations[key] = new_state
-                if self.persistent and self.persistence and self.name:
-                    await self.persistence.update_conversation(self.name, key, new_state)
+                # if self.persistent and self.persistence and self.name:
+                #     await self.persistence.update_conversation(self.name, key, new_state)
 
     async def _trigger_timeout(self, context: CallbackContext) -> None:
         job = cast('Job', context.job)

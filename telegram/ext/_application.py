@@ -22,6 +22,7 @@ import inspect
 import logging
 from asyncio import Event
 from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 from types import TracebackType, MappingProxyType
 from typing import (
@@ -40,9 +41,9 @@ from typing import (
     Any,
     Set,
     Mapping,
+    cast,
 )
 
-from telegram import Update
 from telegram._utils.types import DVInput, ODVInput
 from telegram.error import TelegramError
 from telegram.ext import BasePersistence, ContextTypes, ExtBot, Updater
@@ -50,6 +51,7 @@ from telegram.ext._handler import Handler
 from telegram.ext._callbackdatacache import CallbackDataCache
 from telegram._utils.defaultvalue import DefaultValue, DEFAULT_TRUE, DEFAULT_NONE
 from telegram._utils.warnings import warn
+from telegram.ext._utils.trackingdefaultdict import _TrackingDefaultDict
 from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, HandlerCallback
 from telegram.ext._utils.stack import was_called_by
 
@@ -156,26 +158,27 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
 
     # Allowing '__weakref__' creation here since we need it for the JobQueue
     __slots__ = (
-        '__weakref__',
-        '_concurrent_updates',
-        'updater',
-        'persistence',
-        'update_queue',
-        'job_queue',
-        '_user_data',
-        'user_data',
-        '_chat_data',
-        'chat_data',
-        'bot_data',
-        '_update_persistence_lock',
-        '_concurrent_updates_sem',
-        'handlers',
-        'error_handlers',
-        '_running',
         '__create_task_tasks',
         '__update_fetcher_task',
+        '__update_persistence_task',
+        '__weakref__',
+        '_chat_data',
+        '_concurrent_updates',
+        '_concurrent_updates_sem',
+        '_running',
+        '_update_persistence_lock',
+        '_user_data',
         'bot',
+        'bot_data',
+        'chat_data',
         'context_types',
+        'error_handlers',
+        'handlers',
+        'job_queue',
+        'persistence',
+        'update_queue',
+        'updater',
+        'user_data',
     )
 
     def __init__(
@@ -214,20 +217,27 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         if self.job_queue:
             self.job_queue.set_application(self)
 
-        self._user_data: DefaultDict[int, UD] = defaultdict(self.context_types.user_data)
-        self._chat_data: DefaultDict[int, CD] = defaultdict(self.context_types.chat_data)
+        self.bot_data = self.context_types.bot_data()
+        self._update_persistence_lock = asyncio.Lock()
+
+        self.persistence: Optional[BasePersistence] = None
+        if persistence and not isinstance(persistence, BasePersistence):
+            raise TypeError("persistence must be based on telegram.ext.BasePersistence")
+        self.persistence = persistence
+
+        if self.persistence:
+            self._user_data: DefaultDict[int, UD] = _TrackingDefaultDict(
+                self.context_types.user_data
+            )
+            self._chat_data: DefaultDict[int, CD] = _TrackingDefaultDict(
+                self.context_types.chat_data
+            )
+        else:
+            self._user_data = defaultdict(self.context_types.user_data)
+            self._chat_data = defaultdict(self.context_types.chat_data)
         # Read only mapping
         self.user_data: Mapping[int, UD] = MappingProxyType(self._user_data)
         self.chat_data: Mapping[int, CD] = MappingProxyType(self._chat_data)
-
-        self.bot_data = self.context_types.bot_data()
-        self.persistence: Optional[BasePersistence] = None
-        self._update_persistence_lock = asyncio.Lock()
-
-        if persistence and not isinstance(persistence, BasePersistence):
-            raise TypeError("persistence must be based on telegram.ext.BasePersistence")
-
-        self.persistence = persistence
 
         self.handlers: Dict[int, List[Handler]] = {}
         self.error_handlers: Dict[Callable, Union[bool, DefaultValue]] = {}
@@ -235,6 +245,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         # A number of low-level helpers for the internal logic
         self._running = False
         self.__update_fetcher_task: Optional[asyncio.Task] = None
+        self.__update_persistence_task: Optional[asyncio.Task] = None
         self.__create_task_tasks: Set[asyncio.Task] = set()
 
     @property
@@ -289,12 +300,8 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
 
         if self.persistence.store_data.user_data:
             self._user_data.update(await self.persistence.get_user_data())
-            if not isinstance(self.user_data, defaultdict):
-                raise ValueError("user_data must be of type defaultdict")
         if self.persistence.store_data.chat_data:
             self._chat_data.update(await self.persistence.get_chat_data())
-            if not isinstance(self.chat_data, defaultdict):
-                raise ValueError("chat_data must be of type defaultdict")
         if self.persistence.store_data.bot_data:
             self.bot_data = await self.persistence.get_bot_data()
             if not isinstance(self.bot_data, self.context_types.bot_data):
@@ -326,12 +333,17 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         return ApplicationBuilder()
 
     async def start(self, ready: Event = None) -> None:
-        """Starts a background task that fetches updates from :attr:`update_queue` and
-        processes them. Also starts :attr:`job_queue`, if set.
+        """Starts
+
+        * a background task that fetches updates from :attr:`update_queue` and
+          processes them.
+        * :attr:`job_queue`, if set
+        * a background tasks that calls :meth:`update_persistence` in regular intervals, if
+          :attr:`persistence` is set.
 
         Note:
-            This does *not* start fetching updates. You need either start :attr:`updater` manually
-            or use one of :attr:`run_polling` or :attr:`run_webhook`.
+            This does *not* start fetching updates from Telegram. You need either start
+            :attr:`updater` manually or use one of :attr:`run_polling` or :attr:`run_webhook`.
 
         Args:
             ready (:obj:`asyncio.Event`, optional): If specified, the event will be set once the
@@ -344,15 +356,25 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 ready.set()
             return
 
-        self.__update_fetcher_task = asyncio.create_task(
-            self._update_fetcher(), name=f'Application:{self.bot.id}:update_fetcher'
-        )
-        self._running = True
-        _logger.debug('Application started')
+        if self.persistence:
+            self.__update_persistence_task = asyncio.create_task(
+                self._persistence_updater()
+                # TODO: Add this once we drop py3.7
+                # name=f'Application:{self.bot.id}:persistence_updater'
+            )
+            _logger.debug('Loop for updating persistence started')
 
         if self.job_queue:
             self.job_queue.start()
             _logger.debug('JobQueue started')
+
+        self.__update_fetcher_task = asyncio.create_task(
+            self._update_fetcher(),
+            # TODO: Add this once we drop py3.7
+            # name=f'Application:{self.bot.id}:update_fetcher'
+        )
+        self._running = True
+        _logger.debug('Application started')
 
         if ready is not None:
             ready.set()
@@ -386,9 +408,17 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             _logger.debug('Waiting for `create_task` calls to be processed')
             await asyncio.gather(*self.__create_task_tasks, return_exceptions=True)
 
-            if self.persistence:
-                self.update_persistence()
-                self.persistence.flush()
+            if self.persistence and self.__update_persistence_task:
+                _logger.debug('Waiting for persistence loop to finish')
+                self.__update_persistence_task.cancel()
+                try:
+                    await self.__update_persistence_task
+                except asyncio.CancelledError:
+                    pass
+
+                _logger.debug('Updating persistence one last time & flushing')
+                await self.update_persistence()
+                await self.persistence.flush()
                 _logger.debug('Updated and flushed persistence')
 
             if self.job_queue:
@@ -558,26 +588,23 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
     async def _update_fetcher(self) -> None:
         # Continuously fetch updates from the queue. Exit only once the signal object is found.
         while True:
-            try:
-                update = await self.update_queue.get()
+            update = await self.update_queue.get()
 
-                if update is _STOP_SIGNAL:
-                    _logger.debug('Dropping pending updates')
-                    while not self.update_queue.empty():
-                        self.update_queue.task_done()
-
-                    # For the _STOP_SIGNAL
+            if update is _STOP_SIGNAL:
+                _logger.debug('Dropping pending updates')
+                while not self.update_queue.empty():
                     self.update_queue.task_done()
-                    return
 
-                _logger.debug('Processing update %s', update)
+                # For the _STOP_SIGNAL
+                self.update_queue.task_done()
+                return
 
-                if self._concurrent_updates:
-                    asyncio.create_task(self.__process_update_wrapper(update))
-                else:
-                    await self.__process_update_wrapper(update)
-            except Exception as exc:
-                _logger.exception('updater fetcher got exception', exc_info=exc)
+            _logger.debug('Processing update %s', update)
+
+            if self._concurrent_updates:
+                asyncio.create_task(self.__process_update_wrapper(update))
+            else:
+                await self.__process_update_wrapper(update)
 
     async def __process_update_wrapper(self, update: object) -> None:
         async with self._concurrent_updates_sem:
@@ -812,59 +839,84 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         await self.drop_chat_data(old_chat_id)
         await self.update_persistence()
 
-    async def update_persistence(self, update: object = None) -> None:
-        """Update :attr:`user_data`, :attr:`chat_data` and :attr:`bot_data` in :attr:`persistence`.
+    async def _persistence_updater(self) -> None:
+        # Update the persistence in regular intervals. Exit only when the stop event has been set
+        while True:
+            if not self.persistence:
+                return
 
-        Args:
-            update (:class:`telegram.Update`, optional): The update to process. If passed, only the
-                corresponding ``user_data`` and ``chat_data`` will be updated.
+            # Shielding since we'll have to use `task.cancel()` to interrupt the sleep below
+            await asyncio.shield(self.update_persistence())
+            await asyncio.sleep(self.persistence.update_interval)
+
+    async def update_persistence(self) -> None:
+        """Updates :attr:`user_data`, :attr:`chat_data`, :attr:`bot_data` in :attr:`persistence`
+        along with :attr:`~telegram.ExtBot.callback_data_cache` and the conversation states of
+        any persistent :class:`~telegram.ext.ConversationHandler` registered for this application.
+
+        For :attr:`user_data`, :attr:`chat_data`, only entries accessed since the last run of this
+        method are updated.
+
+        Tip:
+            This method will be called in regular intervals by the application. There is usually
+            no need to call it manually.
+
+        .. seealso:: :attr:`telegram.ext.BasePersistence.update_interval`.
         """
         async with self._update_persistence_lock:
-            await self.__update_persistence(update)
+            await self.__update_persistence()
 
-    async def __update_persistence(self, update: object = None) -> None:
-        if self.persistence:
-            # We use list() here in order to decouple chat_ids from self.chat_data, as dict view
-            # objects will change, when the dict does and we want to loop over chat_ids
-            chat_ids = list(self.chat_data.keys())
-            user_ids = list(self.user_data.keys())
+    async def __update_persistence(self) -> None:
+        if not self.persistence:
+            return
 
-            if isinstance(update, Update):
-                if update.effective_chat:
-                    chat_ids = [update.effective_chat.id]
-                else:
-                    chat_ids = []
-                if update.effective_user:
-                    user_ids = [update.effective_user.id]
-                else:
-                    user_ids = []
+        _logger.debug('Starting next run of updating the persistence.')
 
-            if self.persistence.store_data.callback_data:
-                try:
-                    # Mypy doesn't know that persistence.set_bot (see above) already checks that
-                    # self.bot is an instance of ExtBot if callback_data should be stored ...
-                    await self.persistence.update_callback_data(
+        # Mypy can't handle the conditional assignment in `__init__`
+        chat_data = cast(_TrackingDefaultDict, self._chat_data)
+        user_data = cast(_TrackingDefaultDict, self._user_data)
+
+        chat_ids = chat_data.pop_accessed_keys()
+        user_ids = user_data.pop_accessed_keys()
+
+        coroutines: Set[Coroutine] = set()
+
+        if self.persistence.store_data.callback_data:
+            # Mypy doesn't know that persistence.set_bot (see above) already checks that
+            # self.bot is an instance of ExtBot if callback_data should be stored ...
+            coroutines.add(
+                self.persistence.update_callback_data(
+                    deepcopy(
                         self.bot.callback_data_cache.persistence_data  # type: ignore[attr-defined]
                     )
-                except Exception as exc:
-                    await self.dispatch_error(update, exc)
-            if self.persistence.store_data.bot_data:
-                try:
-                    await self.persistence.update_bot_data(self.bot_data)
-                except Exception as exc:
-                    await self.dispatch_error(update, exc)
-            if self.persistence.store_data.chat_data:
-                for chat_id in chat_ids:
-                    try:
-                        await self.persistence.update_chat_data(chat_id, self.chat_data[chat_id])
-                    except Exception as exc:
-                        await self.dispatch_error(update, exc)
-            if self.persistence.store_data.user_data:
-                for user_id in user_ids:
-                    try:
-                        await self.persistence.update_user_data(user_id, self.user_data[user_id])
-                    except Exception as exc:
-                        await self.dispatch_error(update, exc)
+                )
+            )
+        if self.persistence.store_data.bot_data:
+            coroutines.add(self.persistence.update_bot_data(deepcopy(self.bot_data)))
+        if self.persistence.store_data.chat_data:
+            for chat_id in chat_ids:
+                coroutines.add(
+                    self.persistence.update_chat_data(
+                        chat_id, deepcopy(chat_data.get_without_tracking(chat_id))
+                    )
+                )
+        if self.persistence.store_data.user_data:
+            for user_id in user_ids:
+                coroutines.add(
+                    self.persistence.update_user_data(
+                        user_id, deepcopy(user_data.get_without_tracking(user_id))
+                    )
+                )
+
+        results = await asyncio.gather(*coroutines, return_exceptions=True)
+        _logger.debug('Finished updating persistence.')
+
+        # dispatch any errors
+        await asyncio.gather(
+            self.dispatch_error(update=None, error=result)
+            for result in results
+            if isinstance(result, Exception)
+        )
 
     def add_error_handler(
         self,
@@ -953,7 +1005,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                     job=job,
                     coroutine=coroutine,
                 )
-                if block:
+                if not block:
                     self.__create_task(
                         callback(update, context), update=update, is_error_handler=True
                     )

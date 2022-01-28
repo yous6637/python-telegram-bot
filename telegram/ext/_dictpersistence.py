@@ -56,6 +56,12 @@ class DictPersistence(BasePersistence):
         store_data (:class:`PersistenceInput`, optional): Specifies which kinds of data will be
             saved by this persistence instance. By default, all available kinds of data will be
             saved.
+        update_interval (:obj:`int` | :obj:`float:, optional): The
+            :class:`~telegram.ext.Application` will update
+            the persistence in regular intervals. This parameter specifies the time (in seconds) to
+            wait between two consecutive runs of updating the persistence. Defaults to 60 seconds.
+
+            .. versionadded:: 14.0
         user_data_json (:obj:`str`, optional): JSON string that will be used to reconstruct
             user_data on creating this persistence. Default is ``""``.
         chat_data_json (:obj:`str`, optional): JSON string that will be used to reconstruct
@@ -95,8 +101,9 @@ class DictPersistence(BasePersistence):
         bot_data_json: str = '',
         conversations_json: str = '',
         callback_data_json: str = '',
+        update_interval: float = 60,
     ):
-        super().__init__(store_data=store_data)
+        super().__init__(store_data=store_data, update_interval=update_interval)
         self._user_data = None
         self._chat_data = None
         self._bot_data = None

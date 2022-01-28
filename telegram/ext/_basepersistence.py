@@ -19,7 +19,17 @@
 """This module contains the BasePersistence class."""
 from abc import ABC, abstractmethod
 from copy import copy
-from typing import Dict, Optional, Tuple, cast, ClassVar, Generic, DefaultDict, NamedTuple
+from typing import (
+    Dict,
+    Optional,
+    Tuple,
+    cast,
+    ClassVar,
+    Generic,
+    DefaultDict,
+    NamedTuple,
+    NoReturn,
+)
 
 from telegram import Bot
 from telegram.ext import ExtBot
@@ -100,6 +110,12 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
         store_data (:class:`PersistenceInput`, optional): Specifies which kinds of data will be
             saved by this persistence instance. By default, all available kinds of data will be
             saved.
+        update_interval (:obj:`int` | :obj:`float:, optional): The
+            :class:`~telegram.ext.Application` will update
+            the persistence in regular intervals. This parameter specifies the time (in seconds) to
+            wait between two consecutive runs of updating the persistence. Defaults to 60 seconds.
+
+            .. versionadded:: 14.0
 
     Attributes:
         store_data (:class:`PersistenceInput`): Specifies which kinds of data will be saved by this
@@ -109,6 +125,7 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
     __slots__ = (
         'bot',
         'store_data',
+        '_update_interval',
         '__dict__',  # __dict__ is included because we replace methods in the __new__
     )
 
@@ -133,19 +150,19 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
         update_callback_data = instance.update_callback_data
 
         async def get_user_data_insert_bot() -> DefaultDict[int, UD]:
-            return await instance.insert_bot(get_user_data())
+            return instance.insert_bot(await get_user_data())
 
         async def get_chat_data_insert_bot() -> DefaultDict[int, CD]:
-            return await instance.insert_bot(get_chat_data())
+            return instance.insert_bot(await get_chat_data())
 
         async def get_bot_data_insert_bot() -> BD:
-            return await instance.insert_bot(get_bot_data())
+            return instance.insert_bot(await get_bot_data())
 
         async def get_callback_data_insert_bot() -> Optional[CDCData]:
-            cdc_data = get_callback_data()
+            cdc_data = await get_callback_data()
             if cdc_data is None:
                 return None
-            return await instance.insert_bot(cdc_data[0]), cdc_data[1]
+            return instance.insert_bot(cdc_data[0]), cdc_data[1]
 
         async def update_user_data_replace_bot(user_id: int, data: UD) -> None:
             return await update_user_data(user_id, instance.replace_bot(data))
@@ -174,10 +191,27 @@ class BasePersistence(Generic[UD, CD, BD], ABC):
     def __init__(
         self,
         store_data: PersistenceInput = None,
+        update_interval: float = 60,
     ):
         self.store_data = store_data or PersistenceInput()
+        self._update_interval = update_interval
 
         self.bot: Bot = None  # type: ignore[assignment]
+
+    @property
+    def update_interval(self) -> float:
+        """:obj:`int`, optional): Time (in seconds) that the :class:`~telegram.ext.Application`
+        will wait between two consecutive runs of updating the persistence.
+
+        .. versionadded:: 14.0
+        """
+        return self._update_interval
+
+    @update_interval.setter
+    def update_interval(self, value: object) -> NoReturn:  # pylint: disable=no-self-use
+        raise AttributeError(
+            "You can not assign a new value to update_interval after initialization."
+        )
 
     def set_bot(self, bot: Bot) -> None:
         """Set the Bot to be used by this persistence instance.

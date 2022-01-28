@@ -149,13 +149,13 @@ class JobQueue:
             chat_id (:obj:`int`, optional): Chat id of the chat associated with this job. If
                 passed, the corresponding :attr:`~telegram.ext.CallbackContext.chat_data` will
                 be available in the callback.
-                
+
                 .. versionadded:: 14.0
 
             user_id (:obj:`int`, optional): User id of the user associated with this job. If
                 passed, the corresponding :attr:`~telegram.ext.CallbackContext.user_data` will
                 be available in the callback.
-                
+
                 .. versionadded:: 14.0
             context (:obj:`object`, optional): Additional data needed for the callback function.
                 Can be accessed through :attr:`Job.context` in the callback. Defaults to
