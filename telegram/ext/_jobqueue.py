@@ -616,11 +616,14 @@ class Job:
             application (:class:`telegram.ext.Application`): The application this job is associated
                 with.
         """
+        # We shield the task such that the job isn't cancelled mid-run
+        await asyncio.shield(self._run(application))
+
+    async def _run(self, application: Application) -> None:
         try:
-            # We shield the task such that the job isn't cancelled mid-run
-            await asyncio.shield(
-                self.callback(application.context_types.context.from_job(self, application))
-            )
+            context = application.context_types.context.from_job(self, application)
+            await context.refresh_data()
+            await self.callback(context)
         except Exception as exc:
             await application.create_task(application.dispatch_error(None, exc, job=self))
 

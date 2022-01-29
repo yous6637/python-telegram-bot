@@ -639,7 +639,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                     if check is not None and check is not False:
                         if not context:
                             context = self.context_types.context.from_update(update, self)
-                            context.refresh_data()
+                            await context.refresh_data()
                         coroutine: Coroutine = handler.handle_update(update, self, check, context)
                         if handler.block:
                             await coroutine

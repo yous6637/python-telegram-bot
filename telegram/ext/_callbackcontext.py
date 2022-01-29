@@ -198,28 +198,31 @@ class CallbackContext(Generic[BT, UD, CD, BD]):
             f"You can not assign a new value to user_data, see {_STORING_DATA_WIKI}"
         )
 
-    def refresh_data(self) -> None:
+    async def refresh_data(self) -> None:
         """If :attr:`application` uses persistence, calls
         :meth:`telegram.ext.BasePersistence.refresh_bot_data` on :attr:`bot_data`,
         :meth:`telegram.ext.BasePersistence.refresh_chat_data` on :attr:`chat_data` and
         :meth:`telegram.ext.BasePersistence.refresh_user_data` on :attr:`user_data`, if
         appropriate.
 
+        Will be called by :meth:`telegram.ext.Application.process_update` and
+        :meth:`telegram.ext.Job.run`.
+
         .. versionadded:: 13.6
         """
         if self.application.persistence:
             if self.application.persistence.store_data.bot_data:
-                self.application.persistence.refresh_bot_data(self.bot_data)
+                await self.application.persistence.refresh_bot_data(self.bot_data)
             if (
                 self.application.persistence.store_data.chat_data
                 and self._chat_id_and_data is not None
             ):
-                self.application.persistence.refresh_chat_data(*self._chat_id_and_data)
+                await self.application.persistence.refresh_chat_data(*self._chat_id_and_data)
             if (
                 self.application.persistence.store_data.user_data
                 and self._user_id_and_data is not None
             ):
-                self.application.persistence.refresh_user_data(*self._user_id_and_data)
+                await self.application.persistence.refresh_user_data(*self._user_id_and_data)
 
     def drop_callback_data(self, callback_query: CallbackQuery) -> None:
         """
