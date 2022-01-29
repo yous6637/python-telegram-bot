@@ -160,6 +160,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
     __slots__ = (
         '__create_task_tasks',
         '__update_fetcher_task',
+        '__update_persistence_event',
         '__update_persistence_task',
         '__weakref__',
         '_chat_data',
@@ -246,6 +247,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         self._running = False
         self.__update_fetcher_task: Optional[asyncio.Task] = None
         self.__update_persistence_task: Optional[asyncio.Task] = None
+        self.__update_persistence_event = asyncio.Event()
         self.__create_task_tasks: Set[asyncio.Task] = set()
 
     @property
@@ -356,6 +358,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 ready.set()
             return
 
+        self.__update_persistence_event.clear()
         if self.persistence:
             self.__update_persistence_task = asyncio.create_task(
                 self._persistence_updater()
@@ -374,7 +377,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             # name=f'Application:{self.bot.id}:update_fetcher'
         )
         self._running = True
-        _logger.debug('Application started')
+        _logger.info('Application started')
 
         if ready is not None:
             ready.set()
@@ -392,6 +395,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         """
         if self.running:
             self._running = False
+            _logger.info('Application is stopping. This might take a moment.')
 
             if self.updater and self.updater.running:
                 _logger.debug('Waiting for updater to stop fetching updates')
@@ -410,12 +414,8 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
 
             if self.persistence and self.__update_persistence_task:
                 _logger.debug('Waiting for persistence loop to finish')
-                self.__update_persistence_task.cancel()
-                try:
-                    await self.__update_persistence_task
-                except asyncio.CancelledError:
-                    pass
-
+                self.__update_persistence_event.set()
+                await self.__update_persistence_task
                 _logger.debug('Updating persistence one last time & flushing')
                 await self.update_persistence()
                 await self.persistence.flush()
@@ -426,7 +426,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 await self.job_queue.stop(wait=True)
                 _logger.debug('JobQueue stopped')
 
-            _logger.debug('Application.stop() complete')
+            _logger.info('Application.stop() complete')
 
     def run_polling(
         self,
@@ -841,13 +841,18 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
 
     async def _persistence_updater(self) -> None:
         # Update the persistence in regular intervals. Exit only when the stop event has been set
-        while True:
+        while not self.__update_persistence_event.is_set():
             if not self.persistence:
                 return
 
-            # Shielding since we'll have to use `task.cancel()` to interrupt the sleep below
-            await asyncio.shield(self.update_persistence())
-            await asyncio.sleep(self.persistence.update_interval)
+            await self.update_persistence()
+            try:
+                await asyncio.wait_for(
+                    self.__update_persistence_event.wait(),
+                    timeout=self.persistence.update_interval,
+                )
+            except asyncio.TimeoutError:
+                return
 
     async def update_persistence(self) -> None:
         """Updates :attr:`user_data`, :attr:`chat_data`, :attr:`bot_data` in :attr:`persistence`
