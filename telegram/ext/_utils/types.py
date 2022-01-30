@@ -32,10 +32,10 @@ from typing import (
     List,
     Dict,
     Any,
-    Optional,
     Union,
     Callable,
     Coroutine,
+    MutableMapping,
 )
 
 if TYPE_CHECKING:
@@ -61,7 +61,7 @@ JobCallback = Callable[[CCT], Coroutine[Any, Any, Any]]
     .. versionadded:: 14.0
 """
 
-ConversationDict = Dict[Tuple[int, ...], Optional[object]]
+ConversationDict = MutableMapping[Tuple[int, ...], object]
 """Dict[Tuple[:obj:`int`, ...], Optional[:obj:`object`]]:
     Dicts as maintained by the :class:`telegram.ext.ConversationHandler`.
 

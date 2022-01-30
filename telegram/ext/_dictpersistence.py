@@ -441,7 +441,7 @@ class DictPersistence(BasePersistence):
         return json.dumps(tmp)
 
     @staticmethod
-    def _decode_conversations_from_json(json_string: str) -> Dict[str, Dict[Tuple, object]]:
+    def _decode_conversations_from_json(json_string: str) -> Dict[str, ConversationDict]:
         """Helper method to decode a conversations dict (that uses tuples as keys) from a
         JSON-string created with :meth:`self._encode_conversations_to_json`.
 
@@ -457,7 +457,7 @@ class DictPersistence(BasePersistence):
             conversations[handler] = {}
             for key, state in states.items():
                 conversations[handler][tuple(json.loads(key))] = state
-        return conversations
+        return conversations  # type: ignore[return-value]
 
     @staticmethod
     def _decode_user_chat_data_from_json(data: str) -> DefaultDict[int, Dict[object, object]]:

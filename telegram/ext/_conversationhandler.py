@@ -22,7 +22,6 @@ import asyncio
 import logging
 import functools
 import datetime
-from threading import Lock
 from typing import (  # pylint: disable=unused-import  # for the "Any" import
     TYPE_CHECKING,
     Dict,
@@ -34,11 +33,11 @@ from typing import (  # pylint: disable=unused-import  # for the "Any" import
     cast,
     ClassVar,
     Any,
+    Set,
 )
 
 from telegram import Update
 from telegram.ext import (
-    BasePersistence,
     CallbackContext,
     CallbackQueryHandler,
     ChosenInlineResultHandler,
@@ -50,6 +49,7 @@ from telegram.ext import (
     TypeHandler,
 )
 from telegram._utils.warnings import warn
+from telegram.ext._utils.trackingdefaultdict import TrackingDefaultDict
 from telegram.ext._utils.types import ConversationDict
 from telegram.ext._utils.types import CCT
 
@@ -200,23 +200,25 @@ class ConversationHandler(Handler[Update, CCT]):
     """
 
     __slots__ = (
-        '_entry_points',
-        '_states',
-        '_fallbacks',
+        '__aplication',
         '_allow_reentry',
-        '_per_user',
-        '_per_chat',
-        '_per_message',
+        '_child_conversations',
         '_conversation_timeout',
-        '_name',
-        'persistent',
-        '_persistence',
-        '_map_to_parent',
-        'timeout_jobs',
-        '_timeout_jobs_lock',
         '_conversations',
         '_conversations_lock',
+        '_entry_points',
+        '_fallbacks',
         '_logger',
+        '_map_to_parent',
+        '_name',
+        '_per_chat',
+        '_per_message',
+        '_per_user',
+        '_persistence',
+        '_states',
+        '_timeout_jobs_lock',
+        'persistent',
+        'timeout_jobs',
     )
 
     END: ClassVar[int] = -1
@@ -262,18 +264,17 @@ class ConversationHandler(Handler[Update, CCT]):
         self._per_message = per_message
         self._conversation_timeout = conversation_timeout
         self._name = name
-        if persistent and not self.name:
-            raise ValueError("Conversations can't be persistent when handler is unnamed.")
-        self.persistent: bool = persistent
-        self._persistence: Optional[BasePersistence] = None
-        """:obj:`telegram.ext.BasePersistence`: The persistence used to store conversations.
-        Set by application"""
         self._map_to_parent = map_to_parent
 
         self.timeout_jobs: Dict[Tuple[int, ...], 'Job'] = {}
-        self._timeout_jobs_lock = Lock()
+        self._timeout_jobs_lock = asyncio.Lock()
         self._conversations: ConversationDict = {}
-        self._conversations_lock = Lock()
+        self._conversations_lock = asyncio.Lock()
+        self._child_conversations: Set['ConversationHandler'] = set()
+
+        if persistent and not self.name:
+            raise ValueError("Conversations can't be persistent when handler is unnamed.")
+        self.persistent: bool = persistent
 
         self._logger = logging.getLogger(__name__)
 
@@ -294,6 +295,10 @@ class ConversationHandler(Handler[Update, CCT]):
         for state_handlers in states.values():
             all_handlers.extend(state_handlers)
 
+        self._child_conversations.update(
+            handler for handler in all_handlers if isinstance(handler, ConversationHandler)
+        )
+
         # this loop is going to warn the user about handlers which can work unexpected
         # in conversations
 
@@ -305,6 +310,9 @@ class ConversationHandler(Handler[Update, CCT]):
         )
 
         for handler in all_handlers:
+            if self.block:
+                handler.block = True
+
             if isinstance(handler, (StringCommandHandler, StringRegexHandler)):
                 warn(
                     "The `ConversationHandler` only handles updates of type `telegram.Update`. "
@@ -365,9 +373,6 @@ class ConversationHandler(Handler[Update, CCT]):
                     "differently from what you expect.",
                     stacklevel=2,
                 )
-
-            if self.block:
-                handler.block = True
 
     @property
     def entry_points(self) -> List[Handler]:
@@ -483,35 +488,40 @@ class ConversationHandler(Handler[Update, CCT]):
             "You can not assign a new value to map_to_parent after initialization."
         )
 
-    @property
-    def persistence(self) -> Optional[BasePersistence]:
-        """The persistence class as provided by the :class:`Application`."""
-        return self._persistence
+    async def _initialize_persistence(
+        self, application: 'Application'
+    ) -> TrackingDefaultDict[Tuple[int, ...], object]:
+        """Initializes the persistence for this handler. While this method is marked as protected,
+        we expect it to be called by the Application/parent conversations. It's just protected to
+        hide it from users.
 
-    @persistence.setter
-    def persistence(self, persistence: BasePersistence) -> None:
-        self._persistence = persistence
-        # Set persistence for nested conversations
-        for handlers in self.states.values():
-            for handler in handlers:
-                if isinstance(handler, ConversationHandler):
-                    handler.persistence = self.persistence
+        Args:
+            application (:class:`telegram.ext.Application`): The application.
 
-    @property
-    def conversations(self) -> ConversationDict:  # skipcq: PY-D0003
+        """
+        if not (self.persistent and self.name and application.persistence):
+            raise RuntimeError(
+                'This handler is not persistent, has no name or the application has no '
+                'persistence!'
+            )
+
+        def default_factory() -> NoReturn:
+            raise KeyError
+
+        self._conversations = cast(
+            TrackingDefaultDict[Tuple[int, ...], object],
+            TrackingDefaultDict(
+                default_factory=default_factory, track_read=False, track_write=True
+            ),
+        )
+        self._conversations.update(await application.persistence.get_conversations(self.name))
+
+        for handler in self._child_conversations:
+            await handler._initialize_persistence(  # pylint: disable=protected-access
+                application=application
+            )
+
         return self._conversations
-
-    @conversations.setter
-    def conversations(self, value: ConversationDict) -> None:
-        self._conversations = value
-        # # Set conversations for nested conversations
-        # for handlers in self.states.values():
-        #     for handler in handlers:
-        #         if isinstance(handler, ConversationHandler) and self.persistence and
-        #         handler.name:
-        #             # TODO: Find a fix for this
-        #             handler.conversations = await self.persistence.get_conversations(
-        #             handler.name)
 
     def _get_key(self, update: Update) -> Tuple[int, ...]:
         chat = update.effective_chat
@@ -604,7 +614,7 @@ class ConversationHandler(Handler[Update, CCT]):
 
         key = self._get_key(update)
         with self._conversations_lock:
-            state = self.conversations.get(key)
+            state = self._conversations.get(key)
 
         # Resolve promises
         if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], asyncio.Task):
@@ -615,20 +625,20 @@ class ConversationHandler(Handler[Update, CCT]):
                 res = self._resolve_task(state)  # type: ignore[arg-type]
                 self._update_state(res, key)
                 with self._conversations_lock:
-                    state = self.conversations.get(key)
+                    state = self._conversations.get(key)
 
             # if not then handle WAITING state instead
             else:
                 handlers = self.states.get(self.WAITING, [])
-                for handler in handlers:
-                    check = handler.check_update(update)
+                for handler_ in handlers:
+                    check = handler_.check_update(update)
                     if check is not None and check is not False:
-                        return self.WAITING, key, handler, check
+                        return self.WAITING, key, handler_, check
                 return None
 
         self._logger.debug('Selecting conversation %s with state %s', str(key), str(state))
 
-        handler = None
+        handler: Optional[Handler] = None
 
         # Search entry points for a match
         if state is None or self.allow_reentry:
@@ -644,9 +654,7 @@ class ConversationHandler(Handler[Update, CCT]):
 
         # Get the handler list for current state, if we didn't find one yet and we're still here
         if state is not None and not handler:
-            handlers = self.states.get(state)
-
-            for candidate in handlers or []:
+            for candidate in self.states.get(state, []):
                 check = candidate.check_update(update)
                 if check is not None and check is not False:
                     handler = candidate
@@ -694,7 +702,8 @@ class ConversationHandler(Handler[Update, CCT]):
             if timeout_job is not None:
                 timeout_job.schedule_removal()
         try:
-            new_state = await handler.handle_update(
+            # TODO handle non-blocking handlers correctly
+            new_state: object = await handler.handle_update(
                 update, application, handler_check_result, context
             )
         except ApplicationHandlerStop as exception:
@@ -741,19 +750,13 @@ class ConversationHandler(Handler[Update, CCT]):
     def _update_state(self, new_state: object, key: Tuple[int, ...]) -> None:
         if new_state == self.END:
             with self._conversations_lock:
-                if key in self.conversations:
+                if key in self._conversations:
                     # If there is no key in conversations, nothing is done.
-                    del self.conversations[key]
-                    # if self.persistent and self.persistence and self.name:
-                    #     self.persistence.update_conversation(self.name, key, None)
+                    del self._conversations[key]
 
         elif isinstance(new_state, asyncio.Task):
             with self._conversations_lock:
-                self.conversations[key] = (self.conversations.get(key), new_state)
-                # if self.persistent and self.persistence and self.name:
-                #     await self.persistence.update_conversation(
-                #         self.name, key, (self.conversations.get(key), new_state)
-                #     )
+                self._conversations[key] = (self._conversations.get(key), new_state)
 
         elif new_state is not None:
             if new_state not in self.states:
@@ -762,9 +765,7 @@ class ConversationHandler(Handler[Update, CCT]):
                     f"ConversationHandler{' ' + self.name if self.name is not None else ''}.",
                 )
             with self._conversations_lock:
-                self.conversations[key] = new_state
-                # if self.persistent and self.persistence and self.name:
-                #     await self.persistence.update_conversation(self.name, key, new_state)
+                self._conversations[key] = new_state
 
     async def _trigger_timeout(self, context: CallbackContext) -> None:
         job = cast('Job', context.job)

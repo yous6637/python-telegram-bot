@@ -19,6 +19,7 @@
 """This module contains the Application class."""
 import asyncio
 import inspect
+import itertools
 import logging
 from asyncio import Event
 from collections import defaultdict
@@ -27,7 +28,6 @@ from pathlib import Path
 from types import TracebackType, MappingProxyType
 from typing import (
     Callable,
-    DefaultDict,
     Dict,
     List,
     Optional,
@@ -42,6 +42,7 @@ from typing import (
     Set,
     Mapping,
     cast,
+    MutableMapping,
 )
 
 from telegram._utils.types import DVInput, ODVInput
@@ -51,7 +52,7 @@ from telegram.ext._handler import Handler
 from telegram.ext._callbackdatacache import CallbackDataCache
 from telegram._utils.defaultvalue import DefaultValue, DEFAULT_TRUE, DEFAULT_NONE
 from telegram._utils.warnings import warn
-from telegram.ext._utils.trackingdefaultdict import _TrackingDefaultDict
+from telegram.ext._utils.trackingdefaultdict import TrackingDefaultDict
 from telegram.ext._utils.types import CCT, UD, CD, BD, BT, JQ, HandlerCallback
 from telegram.ext._utils.stack import was_called_by
 
@@ -62,7 +63,6 @@ if TYPE_CHECKING:
 
 DEFAULT_GROUP: int = 0
 
-_UT = TypeVar('_UT')
 _DispType = TypeVar('_DispType', bound="Application")
 _RT = TypeVar('_RT')
 _STOP_SIGNAL = object()
@@ -161,13 +161,15 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         '__create_task_tasks',
         '__update_fetcher_task',
         '__update_persistence_event',
+        '__update_persistence_lock',
         '__update_persistence_task',
         '__weakref__',
         '_chat_data',
         '_concurrent_updates',
         '_concurrent_updates_sem',
+        '_conversation_handler_conversations',
+        '_initialized',
         '_running',
-        '_update_persistence_lock',
         '_user_data',
         'bot',
         'bot_data',
@@ -206,10 +208,11 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         self.job_queue = job_queue
         self.context_types = context_types
         self.updater = updater
+        self.handlers: Dict[int, List[Handler]] = {}
+        self.error_handlers: Dict[Callable, Union[bool, DefaultValue]] = {}
 
         if isinstance(concurrent_updates, int) and concurrent_updates < 0:
             raise ValueError('`concurrent_updates` must be a non-negative integer!')
-
         if concurrent_updates is True:
             concurrent_updates = 4096
         self._concurrent_updates_sem = asyncio.BoundedSemaphore(concurrent_updates or 1)
@@ -219,35 +222,44 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             self.job_queue.set_application(self)
 
         self.bot_data = self.context_types.bot_data()
-        self._update_persistence_lock = asyncio.Lock()
-
         self.persistence: Optional[BasePersistence] = None
         if persistence and not isinstance(persistence, BasePersistence):
             raise TypeError("persistence must be based on telegram.ext.BasePersistence")
         self.persistence = persistence
-
-        if self.persistence:
-            self._user_data: DefaultDict[int, UD] = _TrackingDefaultDict(
-                self.context_types.user_data
-            )
-            self._chat_data: DefaultDict[int, CD] = _TrackingDefaultDict(
-                self.context_types.chat_data
+        # Track access to chat_ids only if necessary for the persistence
+        if self.persistence and self.persistence.store_data.user_data:
+            self._user_data: MutableMapping[int, UD] = TrackingDefaultDict(
+                default_factory=self.context_types.user_data, track_read=True, track_write=False
             )
         else:
             self._user_data = defaultdict(self.context_types.user_data)
+        # Track access to user_ids only if necessary for the persistence
+        if self.persistence and self.persistence.store_data.chat_data:
+            self._chat_data: MutableMapping[int, CD] = TrackingDefaultDict(
+                # track_write = True for self.migrate_chat_data
+                default_factory=self.context_types.chat_data,
+                track_read=True,
+                track_write=True,
+            )
+        else:
             self._chat_data = defaultdict(self.context_types.chat_data)
         # Read only mapping
         self.user_data: Mapping[int, UD] = MappingProxyType(self._user_data)
         self.chat_data: Mapping[int, CD] = MappingProxyType(self._chat_data)
 
-        self.handlers: Dict[int, List[Handler]] = {}
-        self.error_handlers: Dict[Callable, Union[bool, DefaultValue]] = {}
+        # This attribute will hold references to the conversation dicts of all conversation
+        # handlers so that we can extract the changed states during `update_persistence`
+        self._conversation_handler_conversations: Dict[
+            str, TrackingDefaultDict[Tuple[int, ...], object]
+        ] = {}
 
         # A number of low-level helpers for the internal logic
+        self._initialized = False
         self._running = False
         self.__update_fetcher_task: Optional[asyncio.Task] = None
         self.__update_persistence_task: Optional[asyncio.Task] = None
         self.__update_persistence_event = asyncio.Event()
+        self.__update_persistence_lock = asyncio.Lock()
         self.__create_task_tasks: Set[asyncio.Task] = set()
 
     @property
@@ -267,12 +279,40 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         await self.bot.initialize()
         if self.updater:
             await self.updater.initialize()
+
+        if not self.persistence:
+            self._initialized = True
+            return
+
         await self._initialize_persistence()
+
+        # Unfortunately due to circular imports this has to be here
+        # pylint: disable=import-outside-toplevel
+        from telegram.ext._conversationhandler import ConversationHandler
+
+        # Initialize the persistent conversation handlers with the stored states
+        for handler in itertools.chain.from_iterable(self.handlers.values()):
+            if isinstance(handler, ConversationHandler) and handler.persistent and handler.name:
+                self._conversation_handler_conversations[
+                    handler.name
+                ] = await handler._initialize_persistence(  # pylint: disable=protected-access
+                    self
+                )
+
+        self._initialized = True
 
     async def shutdown(self) -> None:
         await self.bot.shutdown()
         if self.updater:
             await self.updater.shutdown()
+
+        if self.persistence:
+            _logger.debug('Updating & flushing persistence before shutdown')
+            await self.update_persistence()
+            await self.persistence.flush()
+            _logger.debug('Updated and flushed persistence')
+
+        self._initialized = False
 
     async def __aenter__(self: _DispType) -> _DispType:
         try:
@@ -409,22 +449,19 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 await self.__update_fetcher_task
             _logger.debug("Application stopped fetching of updates.")
 
-            _logger.debug('Waiting for `create_task` calls to be processed')
-            await asyncio.gather(*self.__create_task_tasks, return_exceptions=True)
-
-            if self.persistence and self.__update_persistence_task:
-                _logger.debug('Waiting for persistence loop to finish')
-                self.__update_persistence_event.set()
-                await self.__update_persistence_task
-                _logger.debug('Updating persistence one last time & flushing')
-                await self.update_persistence()
-                await self.persistence.flush()
-                _logger.debug('Updated and flushed persistence')
-
             if self.job_queue:
                 _logger.debug('Waiting for running jobs to finish')
                 await self.job_queue.stop(wait=True)
                 _logger.debug('JobQueue stopped')
+
+            _logger.debug('Waiting for `create_task` calls to be processed')
+            await asyncio.gather(*self.__create_task_tasks, return_exceptions=True)
+
+            # Make sure that this is the *last* step of stopping the application!
+            if self.persistence and self.__update_persistence_task:
+                _logger.debug('Waiting for persistence loop to finish')
+                self.__update_persistence_event.set()
+                await self.__update_persistence_task
 
             _logger.info('Application.stop() complete')
 
@@ -658,7 +695,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                     _logger.debug('Error handler stopped further handlers.')
                     break
 
-    def add_handler(self, handler: Handler[_UT, CCT], group: int = DEFAULT_GROUP) -> None:
+    def add_handler(self, handler: Handler[Any, CCT], group: int = DEFAULT_GROUP) -> None:
         """Register a handler.
 
         TL;DR: Order and priority counts. 0 or 1 handlers per group will be used. End handling of
@@ -691,22 +728,18 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             raise TypeError(f'handler is not an instance of {Handler.__name__}')
         if not isinstance(group, int):
             raise TypeError('group is not int')
-        # For some reason MyPy infers the type of handler is <nothing> here,
-        # so for now we just ignore all the errors
-        if (
-            isinstance(handler, ConversationHandler)
-            and handler.persistent  # type: ignore[attr-defined]
-            and handler.name  # type: ignore[attr-defined]
-        ):
+        if isinstance(handler, ConversationHandler) and handler.persistent and handler.name:
             if not self.persistence:
                 raise ValueError(
-                    f"ConversationHandler {handler.name} "  # type: ignore[attr-defined]
+                    f"ConversationHandler {handler.name} "
                     f"can not be persistent if application has no persistence"
                 )
-            handler.persistence = self.persistence  # type: ignore[attr-defined]
-            handler.conversations = (  # type: ignore[attr-defined]
-                self.persistence.get_conversations(handler.name)  # type: ignore[attr-defined]
-            )
+            if self._initialized:
+                warn(
+                    'A persistent `ConversationHandler` was passed to `add_handler`, '
+                    'after `Application.initialize` was called. Conversation states will not be '
+                    'loaded from persistence! '
+                )
 
         if group not in self.handlers:
             self.handlers[group] = []
@@ -781,9 +814,6 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         """
         self._chat_data.pop(chat_id, None)  # type: ignore[arg-type]
 
-        if self.persistence:
-            await self.persistence.drop_chat_data(chat_id)
-
     async def drop_user_data(self, user_id: int) -> None:
         """Used for deleting a key from the :attr:`user_data`.
 
@@ -794,9 +824,6 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 will be deleted even if it is not empty.
         """
         self._user_data.pop(user_id, None)  # type: ignore[arg-type]
-
-        if self.persistence:
-            await self.persistence.drop_user_data(user_id)
 
     async def migrate_chat_data(
         self, message: 'Message' = None, old_chat_id: int = None, new_chat_id: int = None
@@ -836,8 +863,6 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             raise ValueError("old_chat_id and new_chat_id must be integers")
 
         self._chat_data[new_chat_id] = self._chat_data[old_chat_id]
-        await self.drop_chat_data(old_chat_id)
-        await self.update_persistence()
 
     async def _persistence_updater(self) -> None:
         # Update the persistence in regular intervals. Exit only when the stop event has been set
@@ -868,7 +893,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
 
         .. seealso:: :attr:`telegram.ext.BasePersistence.update_interval`.
         """
-        async with self._update_persistence_lock:
+        async with self.__update_persistence_lock:
             await self.__update_persistence()
 
     async def __update_persistence(self) -> None:
@@ -876,13 +901,6 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             return
 
         _logger.debug('Starting next run of updating the persistence.')
-
-        # Mypy can't handle the conditional assignment in `__init__`
-        chat_data = cast(_TrackingDefaultDict, self._chat_data)
-        user_data = cast(_TrackingDefaultDict, self._user_data)
-
-        chat_ids = chat_data.pop_accessed_keys()
-        user_ids = user_data.pop_accessed_keys()
 
         coroutines: Set[Coroutine] = set()
 
@@ -896,22 +914,60 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                     )
                 )
             )
+
         if self.persistence.store_data.bot_data:
             coroutines.add(self.persistence.update_bot_data(deepcopy(self.bot_data)))
+
         if self.persistence.store_data.chat_data:
-            for chat_id in chat_ids:
-                coroutines.add(
-                    self.persistence.update_chat_data(
-                        chat_id, deepcopy(chat_data.get_without_tracking(chat_id))
-                    )
-                )
+            # Mypy can't handle the conditional assignment in `__init__`
+            chat_data = cast(TrackingDefaultDict, self._chat_data)
+            for chat_id, data in chat_data.pop_accessed_read_items():
+                coroutines.add(self.persistence.update_chat_data(chat_id, deepcopy(data)))
+            for chat_id, data in chat_data.pop_accessed_write_items():
+                if data is not chat_data.DELETED:
+                    _logger.critical('`Application._chat_data[%s]` was written manually', chat_id)
+                    coroutines.add(self.persistence.update_chat_data(chat_id, deepcopy(data)))
+                else:
+                    coroutines.add(self.persistence.drop_chat_data(chat_id))
+
         if self.persistence.store_data.user_data:
-            for user_id in user_ids:
-                coroutines.add(
-                    self.persistence.update_user_data(
-                        user_id, deepcopy(user_data.get_without_tracking(user_id))
+            # Mypy can't handle the conditional assignment in `__init__`
+            user_data = cast(TrackingDefaultDict, self._user_data)
+            for user_id, data in user_data.pop_accessed_read_items():
+                coroutines.add(self.persistence.update_user_data(user_id, deepcopy(data)))
+            for user_id, data in user_data.pop_accessed_write_items():
+                if data is not user_data.DELETED:
+                    _logger.critical('`Application._user_data[%s]` was written manually', user_id)
+                    coroutines.add(self.persistence.update_user_data(user_id, deepcopy(data)))
+                else:
+                    coroutines.add(self.persistence.drop_user_data(user_id))
+
+        for name, (key, new_state) in itertools.chain.from_iterable(
+            zip(itertools.repeat(name), states_dict.pop_accessed_write_items())
+            for name, states_dict in self._conversation_handler_conversations.items()
+        ):
+            if isinstance(new_state, tuple) and isinstance(new_state[1], asyncio.Task):
+                # If the handler was running non-blocking, we check if the new state is already
+                # available. Otherwise, we update with the old state, which is the next best
+                # guess.
+                # Note that when updating the persistence one last time during self.stop(),
+                # *all* tasks will be done.
+                try:
+                    result = new_state[1].result()
+                    coroutines.add(
+                        self.persistence.update_conversation(name=name, key=key, new_state=result)
                     )
-                )
+                except (asyncio.InvalidStateError, asyncio.CancelledError):
+                    effective_new_state = (
+                        None if new_state[0] is TrackingDefaultDict.DELETED else new_state[0]
+                    )
+                    coroutines.add(
+                        self.persistence.update_conversation(
+                            name=name,
+                            key=key,
+                            new_state=effective_new_state,
+                        )
+                    )
 
         results = await asyncio.gather(*coroutines, return_exceptions=True)
         _logger.debug('Finished updating persistence.')

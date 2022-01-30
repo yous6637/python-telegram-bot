@@ -619,7 +619,7 @@ class Job:
         # We shield the task such that the job isn't cancelled mid-run
         await asyncio.shield(self._run(application))
 
-    async def _run(self, application: Application) -> None:
+    async def _run(self, application: 'Application') -> None:
         try:
             context = application.context_types.context.from_job(self, application)
             await context.refresh_data()

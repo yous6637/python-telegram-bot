@@ -236,6 +236,7 @@ def _app(bot):
 @pytest.fixture(scope='function')
 def app(_app):
     # Reset the application first
+    # TODO: consider just using the builder pattern to build a new object
     while not _app.update_queue.empty():
         _app.update_queue.get(False)
     _app._chat_data = defaultdict(dict)
