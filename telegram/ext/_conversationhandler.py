@@ -176,15 +176,14 @@ class ConversationHandler(Handler[Update, CCT]):
         map_to_parent (Dict[:obj:`object`, :obj:`object`], optional): A :obj:`dict` that can be
             used to instruct a nested conversation handler to transition into a mapped state on
             its parent conversation handler in place of a specified nested state.
-        block (:obj:`bool`, optional): Pass :obj:`True` to *override* the
+        block (:obj:`bool`, optional): Pass :obj:`False` to *overrule* the
             :attr:`Handler.block` setting of all handlers (in :attr:`entry_points`,
             :attr:`states` and :attr:`fallbacks`).
-
-            Note:
-                If set to :obj:`True`, you should not pass a handler instance, that needs to be
-                run synchronously in another context.
+            Defaults to :obj:`True`.
 
             .. versionadded:: 13.2
+            .. versionchanged:: 14.0
+                No longer overrides the handlers settings
 
     Raises:
         ValueError
@@ -192,8 +191,7 @@ class ConversationHandler(Handler[Update, CCT]):
     Attributes:
         persistent (:obj:`bool`): Optional. If the conversations dict for this handler should be
             saved. Name is required and persistence has to be set in :class:`telegram.ext.Updater`
-        block (:obj:`bool`): If :obj:`False`, will override the
-            :attr:`Handler.block` setting of all internal handlers on initialization.
+        block (:obj:`bool`): Determines whether the callback will run asynchronously.
 
             .. versionadded:: 13.2
 

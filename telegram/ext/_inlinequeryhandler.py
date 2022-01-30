@@ -67,8 +67,8 @@ class InlineQueryHandler(Handler[Update, CCT]):
             handle inline queries with the appropriate :attr:`telegram.InlineQuery.chat_type`.
 
             .. versionadded:: 13.5
-        block (:obj:`bool`): Determines whether the return value of the callback should be
-            awaited before processing the next handler in
+        block (:obj:`bool`, optional): Determines whether the return value of the callback should
+            be awaited before processing the next handler in
             :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:

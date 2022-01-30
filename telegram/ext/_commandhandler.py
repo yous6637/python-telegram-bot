@@ -64,8 +64,8 @@ class CommandHandler(Handler[Update, CCT]):
             :class:`telegram.ext.filters.BaseFilter`. Standard filters can be found in
             :mod:`telegram.ext.filters`. Filters can be combined using bitwise
             operators (& for and, | for or, ~ for not).
-        block (:obj:`bool`): Determines whether the return value of the callback should be
-            awaited before processing the next handler in
+        block (:obj:`bool`, optional): Determines whether the return value of the callback should
+            be awaited before processing the next handler in
             :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Raises:
@@ -215,8 +215,8 @@ class PrefixHandler(CommandHandler):
             :class:`telegram.ext.filters.BaseFilter`. Standard filters can be found in
             :mod:`telegram.ext.filters`. Filters can be combined using bitwise
             operators (& for and, | for or, ~ for not).
-        block (:obj:`bool`): Determines whether the return value of the callback should be
-            awaited before processing the next handler in
+        block (:obj:`bool`, optional): Determines whether the return value of the callback should
+            be awaited before processing the next handler in
             :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:

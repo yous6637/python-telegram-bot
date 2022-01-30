@@ -86,8 +86,8 @@ class CallbackQueryHandler(Handler[Update, CCT]):
 
             .. versionchanged:: 13.6
                Added support for arbitrary callback data.
-        block (:obj:`bool`): Determines whether the return value of the callback should be
-            awaited before processing the next handler in
+        block (:obj:`bool`, optional): Determines whether the return value of the callback should
+            be awaited before processing the next handler in
             :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:

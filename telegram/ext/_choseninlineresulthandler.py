@@ -46,8 +46,8 @@ class ChosenInlineResultHandler(Handler[Update, CCT]):
 
             The return value of the callback is usually ignored except for the special case of
             :class:`telegram.ext.ConversationHandler`.
-        block (:obj:`bool`): Determines whether the return value of the callback should be
-            awaited before processing the next handler in
+        block (:obj:`bool`, optional): Determines whether the return value of the callback should
+            be awaited before processing the next handler in
             :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
         pattern (:obj:`str` | `Pattern`, optional): Regex pattern. If not :obj:`None`, ``re.match``
             is used on :attr:`telegram.ChosenInlineResult.result_id` to determine if an update

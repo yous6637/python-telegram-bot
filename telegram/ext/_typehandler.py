@@ -47,8 +47,8 @@ class TypeHandler(Handler[UT, CCT]):
             :class:`telegram.ext.ConversationHandler`.
         strict (:obj:`bool`, optional): Use ``type`` instead of ``isinstance``.
             Default is :obj:`False`
-        block (:obj:`bool`): Determines whether the return value of the callback should be
-            awaited before processing the next handler in
+        block (:obj:`bool`, optional): Determines whether the return value of the callback should
+            be awaited before processing the next handler in
             :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:

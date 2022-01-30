@@ -48,8 +48,8 @@ class ChatMemberHandler(Handler[Update, CCT]):
             :attr:`CHAT_MEMBER` or :attr:`ANY_CHAT_MEMBER` to specify if this handler should handle
             only updates with :attr:`telegram.Update.my_chat_member`,
             :attr:`telegram.Update.chat_member` or both. Defaults to :attr:`MY_CHAT_MEMBER`.
-        block (:obj:`bool`): Determines whether the return value of the callback should be
-            awaited before processing the next handler in
+        block (:obj:`bool`, optional): Determines whether the return value of the callback should
+            be awaited before processing the next handler in
             :meth:`telegram.ext.Application.process_update`. Defaults to :obj:`True`.
 
     Attributes:
