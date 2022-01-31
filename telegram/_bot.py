@@ -258,7 +258,6 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
             else:
                 data[key] = DefaultValue.get_value(val)
 
-    # JSONDict = Dict[str, Any]
     async def _post(
         self,
         endpoint: str,  # 'sendMessage', 'sendPhoto', 'getMe'

@@ -131,13 +131,15 @@ class TrackingDefaultDict(MutableMapping[_KT, _VT]):
         return out
 
     def pop_accessed_read_items(self) -> List[Tuple[_KT, _VT]]:
-        """Returns all keys & corresponding values as set of tuples that were read-accessed since
+        """
+        Returns all keys & corresponding values as set of tuples that were read-accessed since
         the last time this method was called."""
         keys = self.pop_accessed_read_keys()
         return [(key, self._data[key]) for key in keys]
 
     def pop_accessed_write_items(self) -> List[Tuple[_KT, _VT]]:
-        """Returns all keys & corresponding values as set of tuples that were write-accessed since
+        """
+        Returns all keys & corresponding values as set of tuples that were write-accessed since
         the last time this method was called. If a key was deleted, the value will be
         :attr:`DELETED`."""
         keys = self.pop_accessed_write_keys()

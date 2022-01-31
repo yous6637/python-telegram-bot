@@ -1061,7 +1061,6 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
             :obj:`bool`: :obj:`True` if one of the error handlers raised
                 :class:`telegram.ext.ApplicationHandlerStop`. :obj:`False`, otherwise.
         """
-
         if self.error_handlers:
             for (
                 callback,
