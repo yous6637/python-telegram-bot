@@ -229,7 +229,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         # Track access to chat_ids only if necessary for the persistence
         if self.persistence and self.persistence.store_data.user_data:
             self._user_data: MutableMapping[int, UD] = TrackingDefaultDict(
-                default_factory=self.context_types.user_data, track_read=True, track_write=False
+                default_factory=self.context_types.user_data, track_read=True, track_write=True
             )
         else:
             self._user_data = defaultdict(self.context_types.user_data)
@@ -341,9 +341,13 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
         self.persistence.set_bot(self.bot)
 
         if self.persistence.store_data.user_data:
-            self._user_data.update(await self.persistence.get_user_data())
+            cast(TrackingDefaultDict, self._user_data).update_no_track(
+                await self.persistence.get_user_data()
+            )
         if self.persistence.store_data.chat_data:
-            self._chat_data.update(await self.persistence.get_chat_data())
+            cast(TrackingDefaultDict, self._chat_data).update_no_track(
+                await self.persistence.get_chat_data()
+            )
         if self.persistence.store_data.bot_data:
             self.bot_data = await self.persistence.get_bot_data()
             if not isinstance(self.bot_data, self.context_types.bot_data):
@@ -483,6 +487,9 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 'Application.run_polling is only available if the application has an Updater.'
             )
 
+        def error_callback(exc: TelegramError) -> None:
+            self.create_task(self.dispatch_error(update=None, error=exc))
+
         return self.__run(
             updater_coroutine=self.updater.start_polling(
                 poll_interval=poll_interval,
@@ -494,6 +501,7 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
                 pool_timeout=pool_timeout,
                 allowed_updates=allowed_updates,
                 drop_pending_updates=drop_pending_updates,
+                error_callback=error_callback,
             ),
             ready=ready,
         )
@@ -538,8 +546,8 @@ class Application(Generic[BT, CCT, UD, CD, BD, JQ]):
     def __run(self, updater_coroutine: Coroutine, ready: asyncio.Event = None) -> None:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.initialize())
-        loop.run_until_complete(updater_coroutine)
         loop.run_until_complete(self.start(ready=ready))
+        loop.run_until_complete(updater_coroutine)
         try:
             loop.run_forever()
         except (KeyboardInterrupt, SystemExit):

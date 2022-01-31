@@ -38,6 +38,8 @@ from typing import (
     Tuple,
     overload,
     MutableMapping,
+    List,
+    Mapping,
 )
 from collections import defaultdict
 
@@ -101,6 +103,15 @@ class TrackingDefaultDict(MutableMapping[_KT, _VT]):
             else:
                 self._write_access_keys.add(key)
 
+    def __repr__(self) -> str:
+        return repr(self._data)
+
+    def __str__(self) -> str:
+        return str(self._data)
+
+    def __eq__(self, other: object) -> bool:
+        return other == self._data
+
     def pop_accessed_read_keys(self) -> Set[_KT]:
         """Returns all keys that were read-accessed since the last time this method was called."""
         if not self.track_read:
@@ -119,18 +130,18 @@ class TrackingDefaultDict(MutableMapping[_KT, _VT]):
         self._write_access_keys = set()
         return out
 
-    def pop_accessed_read_items(self) -> Set[Tuple[_KT, _VT]]:
+    def pop_accessed_read_items(self) -> List[Tuple[_KT, _VT]]:
         """Returns all keys & corresponding values as set of tuples that were read-accessed since
         the last time this method was called."""
         keys = self.pop_accessed_read_keys()
-        return {(key, self._data[key]) for key in keys}
+        return [(key, self._data[key]) for key in keys]
 
-    def pop_accessed_write_items(self) -> Set[Tuple[_KT, _VT]]:
+    def pop_accessed_write_items(self) -> List[Tuple[_KT, _VT]]:
         """Returns all keys & corresponding values as set of tuples that were write-accessed since
         the last time this method was called. If a key was deleted, the value will be
         :attr:`DELETED`."""
         keys = self.pop_accessed_write_keys()
-        return {(key, self._data[key] if key in self._data else self.DELETED) for key in keys}
+        return [(key, self._data[key] if key in self._data else self.DELETED) for key in keys]
 
     # Implement abstract interface
 
@@ -154,6 +165,9 @@ class TrackingDefaultDict(MutableMapping[_KT, _VT]):
 
     def __len__(self) -> int:
         return len(self._data)
+
+    def update_no_track(self, mapping: Mapping[_KT, _VT]) -> None:
+        return self._data.update(mapping)
 
     # Override some methods so that they fit better with the read/write access book keeping
 

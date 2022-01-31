@@ -155,6 +155,7 @@ class Updater:
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
         allowed_updates: List[str] = None,
         drop_pending_updates: bool = None,
+        error_callback: Callable[[TelegramError], None] = None,
     ) -> asyncio.Queue:
         """Starts polling updates from Telegram.
 
@@ -181,6 +182,10 @@ class Updater:
             read_timeout (:obj:`float` | :obj:`int`, optional): Grace time in seconds for receiving
                 the reply from server. Will be added to the ``timeout`` value and used as the read
                 timeout from server (Default: ``2``).
+            error_callback (Callable[[:exc:`telegram.error.TelegramError`], :obj:`None`], \
+                optional): Callback to handle :exc:`telegram.error.TelegramError` s that occur
+                while calling :meth:`telegram.Bot.get_updates` during polling. Defaults to
+                :obj:`None`, in which case errors will be logged.
 
         Returns:
             :class:`asyncio.Queue`: The update queue that can be filled from the main thread.
@@ -208,6 +213,7 @@ class Updater:
                 drop_pending_updates,
                 allowed_updates,
                 ready=polling_ready,
+                error_callback=error_callback,
             )
 
             self._logger.debug('Waiting for polling to start')
@@ -228,6 +234,7 @@ class Updater:
         drop_pending_updates: bool,
         allowed_updates: Optional[List[str]],
         ready: asyncio.Event = None,
+        error_callback: Callable[[TelegramError], None] = None,
     ) -> None:
         # Target of task 'updater.start_polling()'. Runs in background, pulls
         # updates from Telegram and inserts them in the update queue of the
@@ -265,19 +272,17 @@ class Updater:
 
             return True
 
-        # TODO: rethink this. suggestion:
-        #   • If we have a application, just call `application.dispatch_error`
-        #   • Otherwise, log it
-        async def polling_onerr_cb(exc: Exception) -> None:
-            # Put the error into the update queue and let the Application
-            # broadcast it
-            await self.update_queue.put(exc)
+        def default_error_callback(exc: TelegramError) -> None:
+            self._logger.exception('Exception happened while polling for updates.', exc_info=exc)
 
         if ready is not None:
             ready.set()
 
         await self._network_loop_retry(
-            polling_action_cb, polling_onerr_cb, 'getting Updates', poll_interval
+            action_cb=polling_action_cb,
+            onerr_cb=error_callback or default_error_callback,
+            description='getting Updates',
+            interval=poll_interval,
         )
 
     async def start_webhook(
@@ -443,7 +448,7 @@ class Updater:
     async def _network_loop_retry(
         self,
         action_cb: Callable[..., Coroutine],
-        onerr_cb: Callable[..., Coroutine],
+        onerr_cb: Callable[[TelegramError], None],
         description: str,
         interval: float,
     ) -> None:
@@ -480,7 +485,7 @@ class Updater:
                     raise pex
                 except TelegramError as telegram_exc:
                     self._logger.error('Error while %s: %s', description, telegram_exc)
-                    await onerr_cb(telegram_exc)
+                    onerr_cb(telegram_exc)
                     cur_interval = self._increase_poll_interval(cur_interval)
                 else:
                     cur_interval = interval
@@ -537,7 +542,7 @@ class Updater:
             )
             return False
 
-        async def bootstrap_onerr_cb(exc: Exception) -> None:
+        def bootstrap_onerr_cb(exc: Exception) -> None:
             if not isinstance(exc, Forbidden) and (max_retries < 0 or retries[0] < max_retries):
                 retries[0] += 1
                 self._logger.warning(
