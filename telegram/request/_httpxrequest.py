@@ -37,8 +37,8 @@ _logger = logging.getLogger(__name__)
 
 
 class HTTPXRequest(BaseRequest):
-    """Implementation of :class`BaseRequest` using the library
-    `httpx <https://www.python-httpx.org>`_`.
+    """Implementation of :class:`~telegram.request.BaseRequest` using the library
+    `httpx <https://www.python-httpx.org>`_.
 
     Args:
         connection_pool_size (:obj:`int`, optional): Number of connections to keep in the

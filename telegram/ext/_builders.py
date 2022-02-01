@@ -28,7 +28,7 @@ from typing import (
     Dict,
     Union,
     Type,
-    Tuple,
+    Optional,
 )
 
 from telegram import Bot
@@ -119,8 +119,20 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         '_token',
         '_base_url',
         '_base_file_url',
-        '_request_kwargs',
+        '_connection_pool_size',
+        '_proxy_url',
+        '_connect_timeout',
+        '_read_timeout',
+        '_write_timeout',
+        '_pool_timeout',
         '_request',
+        '_get_updates_connection_pool_size',
+        '_get_updates_proxy_url',
+        '_get_updates_connect_timeout',
+        '_get_updates_read_timeout',
+        '_get_updates_write_timeout',
+        '_get_updates_pool_timeout',
+        '_get_updates_request',
         '_private_key',
         '_private_key_password',
         '_defaults',
@@ -140,13 +152,25 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         self._token: DVInput[str] = DefaultValue('')
         self._base_url: DVInput[str] = DefaultValue('https://api.telegram.org/bot')
         self._base_file_url: DVInput[str] = DefaultValue('https://api.telegram.org/file/bot')
-        self._request_kwargs: DVInput[Dict[str, Any]] = DefaultValue({})
-        self._request: ODVInput[Tuple['BaseRequest', 'BaseRequest']] = DEFAULT_NONE
+        self._connection_pool_size: Optional[int] = None
+        self._proxy_url: Optional[str] = None
+        self._connect_timeout: ODVInput[float] = DEFAULT_NONE
+        self._read_timeout: ODVInput[float] = DEFAULT_NONE
+        self._write_timeout: ODVInput[float] = DEFAULT_NONE
+        self._pool_timeout: ODVInput[float] = DEFAULT_NONE
+        self._request: DVInput['BaseRequest'] = DEFAULT_NONE
+        self._get_updates_connection_pool_size: Optional[int] = None
+        self._get_updates_proxy_url: Optional[str] = None
+        self._get_updates_connect_timeout: ODVInput[float] = DEFAULT_NONE
+        self._get_updates_read_timeout: ODVInput[float] = DEFAULT_NONE
+        self._get_updates_write_timeout: ODVInput[float] = DEFAULT_NONE
+        self._get_updates_pool_timeout: ODVInput[float] = DEFAULT_NONE
+        self._get_updates_request: DVInput['BaseRequest'] = DEFAULT_NONE
         self._private_key: ODVInput[bytes] = DEFAULT_NONE
         self._private_key_password: ODVInput[bytes] = DEFAULT_NONE
         self._defaults: ODVInput['Defaults'] = DEFAULT_NONE
         self._arbitrary_callback_data: DVInput[Union[bool, int]] = DEFAULT_FALSE
-        self._bot: Bot = DEFAULT_NONE  # type: ignore[assignment]
+        self._bot: DVInput[Bot] = DEFAULT_NONE
         self._update_queue: DVInput[Queue] = DefaultValue(Queue())
         self._job_queue: ODVInput['JobQueue'] = DefaultValue(JobQueue())
         self._persistence: ODVInput['BasePersistence'] = DEFAULT_NONE
@@ -156,28 +180,36 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         self._concurrent_updates: DVInput[Union[int, bool]] = DEFAULT_FALSE
         self._updater: ODVInput[Updater] = DEFAULT_NONE
 
+    def _build_request(self, get_updates: bool) -> BaseRequest:
+        prefix = 'get_updates_' if get_updates else ''
+        if not isinstance(getattr(self, f'{prefix}request'), DefaultValue):
+            return getattr(self, f'{prefix}request')
+
+        proxy_url = getattr(self, f'{prefix}proxy_url')
+        if get_updates:
+            connection_pool_size = getattr(self, f'{prefix}connection_pool_size') or 1
+        else:
+            connection_pool_size = getattr(self, f'{prefix}connection_pool_size') or 128
+
+        timeouts = dict(
+            connect_timeout=getattr(self, f'{prefix}connect_timeout'),
+            read_timeout=getattr(self, f'{prefix}read_timeout'),
+            write_timeout=getattr(self, f'{prefix}write_timeout'),
+            pool_timeout=getattr(self, f'{prefix}pool_timeout'),
+        )
+        effective_timeouts = {
+            key: value for key, value in timeouts.items() if not isinstance(value, DefaultValue)
+        }
+
+        return HTTPXRequest(
+            connection_pool_size=connection_pool_size,
+            proxy_url=proxy_url,
+            **effective_timeouts,
+        )
+
     def _build_ext_bot(self) -> ExtBot:
         if isinstance(self._token, DefaultValue):
             raise RuntimeError('No bot token was set.')
-
-        if not isinstance(self._request, DefaultValue) and self._request is not None:
-            request = self._request
-        else:
-            request_kwargs = DefaultValue.get_value(self._request_kwargs)
-            if (
-                'connection_pool_size'
-                not in request_kwargs  # pylint: disable=unsupported-membership-test
-            ):
-                request_kwargs[  # pylint: disable=unsupported-assignment-operation
-                    'connection_pool_size'
-                ] = 128
-
-            bot_request_kwargs = request_kwargs.copy()
-            bot_request_kwargs['connection_pool_size'] = 1
-            request = (
-                HTTPXRequest(**bot_request_kwargs),  # pylint: disable=not-a-mapping
-                HTTPXRequest(**request_kwargs),  # pylint: disable=not-a-mapping
-            )
 
         return ExtBot(
             token=self._token,
@@ -187,7 +219,8 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
             private_key_password=DefaultValue.get_value(self._private_key_password),
             defaults=DefaultValue.get_value(self._defaults),
             arbitrary_callback_data=DefaultValue.get_value(self._arbitrary_callback_data),
-            request=request,
+            request=self._build_request(get_updates=False),
+            get_updates_request=self._build_request(get_updates=True),
         )
 
     def build(
@@ -201,7 +234,10 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         job_queue = DefaultValue.get_value(self._job_queue)
 
         if isinstance(self._updater, DefaultValue) or self._updater is None:
-            bot = self._bot if self._bot is not DEFAULT_NONE else self._build_ext_bot()
+            if isinstance(self._bot, DefaultValue):
+                bot: Bot = self._build_ext_bot()
+            else:
+                bot = self._bot
             update_queue = DefaultValue.get_value(self._update_queue)
             updater = Updater(bot=bot, update_queue=update_queue)
         else:
@@ -306,44 +342,132 @@ class ApplicationBuilder(Generic[BT, CCT, UD, CD, BD, JQ]):
         self._base_file_url = base_file_url
         return self
 
-    def request_kwargs(self: BuilderType, request_kwargs: Dict[str, Any]) -> BuilderType:
-        """Sets keyword arguments that will be passed to the :class:`telegram.utils.Request` object
-        that is created when :attr:`telegram.ext.Application.bot` is created. If not called, no
-        keyword arguments will be passed.
+    def _request_check(self, get_updates: bool) -> None:
+        name = 'get_updates_request' if get_updates else 'request'
+
+        for attr in ('connect_timeout', 'read_timeout', 'write_timeout', 'pool_timeout'):
+            if not isinstance(getattr(self, f"_{attr}"), DefaultValue):
+                raise RuntimeError(_TWO_ARGS_REQ.format(name, attr))
+        if self._connection_pool_size is not None:
+            raise RuntimeError(_TWO_ARGS_REQ.format(name, 'connection_pool_size'))
+        if self._proxy_url is not None:
+            raise RuntimeError(_TWO_ARGS_REQ.format(name, 'proxy_url'))
+        if self._bot is not DEFAULT_NONE:
+            raise RuntimeError(_TWO_ARGS_REQ.format(name, 'bot instance'))
+
+    def _request_param_check(self, get_updates: bool) -> None:
+        if get_updates and self._get_updates_request is not DEFAULT_NONE:
+            raise RuntimeError(_TWO_ARGS_REQ.format('get_updates_request', 'bot instance'))
+        if self._request is not DEFAULT_NONE:
+            raise RuntimeError(_TWO_ARGS_REQ.format('request', 'bot instance'))
+
+        if self._bot is not DEFAULT_NONE:
+            raise RuntimeError(
+                _TWO_ARGS_REQ.format(
+                    'get_updates_request' if get_updates else 'request', 'bot instance'
+                )
+            )
+
+    def request(self: BuilderType, request: BaseRequest) -> BuilderType:
+        """Sets a :class:`telegram.utils.Request` object to be used for the ``request`` parameter
+        of :attr:`telegram.ext.Application.bot`.
+
+        .. seealso:: :meth:`get_updates_request`
+
+        Args:
+            request (:class:`telegram.request.BaseRequest`): The request object.
+
+        Returns:
+            :class:`ApplicationBuilder`: The same builder with the updated argument.
+        """
+        self._request_check(get_updates=False)
+        self._request = request
+        return self
+
+    def connection_pool_size(self: BuilderType, connection_pool_size: int) -> BuilderType:
+        self._request_param_check(get_updates=False)
+        self._connection_pool_size = connection_pool_size
+        return self
+
+    def proxy_url(self: BuilderType, proxy_url: str) -> BuilderType:
+        self._request_param_check(get_updates=False)
+        self._proxy_url = proxy_url
+        return self
+
+    def connect_timeout(self: BuilderType, connect_timeout: Optional[float]) -> BuilderType:
+        self._request_param_check(get_updates=False)
+        self._connect_timeout = connect_timeout
+        return self
+
+    def read_timeout(self: BuilderType, read_timeout: Optional[float]) -> BuilderType:
+        self._request_param_check(get_updates=False)
+        self._read_timeout = read_timeout
+        return self
+
+    def write_timeout(self: BuilderType, write_timeout: Optional[float]) -> BuilderType:
+        self._request_param_check(get_updates=False)
+        self._write_timeout = write_timeout
+        return self
+
+    def pool_timeout(self: BuilderType, pool_timeout: Optional[float]) -> BuilderType:
+        self._request_param_check(get_updates=False)
+        self._pool_timeout = pool_timeout
+        return self
+
+    def get_updates_request(self: BuilderType, request: BaseRequest) -> BuilderType:
+        """Sets a :class:`telegram.utils.Request` object to be used for the ``get_updates_request``
+        parameter of :attr:`telegram.ext.Application.bot`.
 
         .. seealso:: :meth:`request`
 
         Args:
-            request_kwargs (Dict[:obj:`str`, :obj:`object`]): The keyword arguments.
+            request (:class:`telegram.request.BaseRequest`): The request object.
 
         Returns:
             :class:`ApplicationBuilder`: The same builder with the updated argument.
         """
-        if self._request is not DEFAULT_NONE:
-            raise RuntimeError(_TWO_ARGS_REQ.format('request_kwargs', 'Request instance'))
-        if self._bot is not DEFAULT_NONE:
-            raise RuntimeError(_TWO_ARGS_REQ.format('request_kwargs', 'bot instance'))
-        self._request_kwargs = request_kwargs
+        self._request_check(get_updates=True)
+        self._request = request
         return self
 
-    def request(self: BuilderType, request: Tuple[BaseRequest, BaseRequest]) -> BuilderType:
-        """Sets a :class:`telegram.utils.Request` object to be used for
-        :attr:`telegram.ext.Application.bot`.
+    def get_updates_connection_pool_size(
+        self: BuilderType, get_updates_connection_pool_size: int
+    ) -> BuilderType:
+        self._request_param_check(get_updates=True)
+        self._get_updates_connection_pool_size = get_updates_connection_pool_size
+        return self
 
-        .. seealso:: :meth:`request_kwargs`
+    def get_updates_proxy_url(self: BuilderType, get_updates_proxy_url: str) -> BuilderType:
+        self._request_param_check(get_updates=True)
+        self._get_updates_proxy_url = get_updates_proxy_url
+        return self
 
-        Args:
-            request (Tuple[:class:`telegram.request.BaseRequest`, \
-                :class:`telegram.request.BaseRequest`]): The request objects.
+    def get_updates_connect_timeout(
+        self: BuilderType, get_updates_connect_timeout: Optional[float]
+    ) -> BuilderType:
+        self._request_param_check(get_updates=True)
+        self._get_updates_connect_timeout = get_updates_connect_timeout
+        return self
 
-        Returns:
-            :class:`ApplicationBuilder`: The same builder with the updated argument.
-        """
-        if not isinstance(self._request_kwargs, DefaultValue):
-            raise RuntimeError(_TWO_ARGS_REQ.format('request', 'request_kwargs'))
-        if self._bot is not DEFAULT_NONE:
-            raise RuntimeError(_TWO_ARGS_REQ.format('request', 'bot instance'))
-        self._request = request
+    def get_updates_read_timeout(
+        self: BuilderType, get_updates_read_timeout: Optional[float]
+    ) -> BuilderType:
+        self._request_param_check(get_updates=True)
+        self._get_updates_read_timeout = get_updates_read_timeout
+        return self
+
+    def get_updates_write_timeout(
+        self: BuilderType, get_updates_write_timeout: Optional[float]
+    ) -> BuilderType:
+        self._request_param_check(get_updates=True)
+        self._get_updates_write_timeout = get_updates_write_timeout
+        return self
+
+    def get_updates_pool_timeout(
+        self: BuilderType, get_updates_pool_timeout: Optional[float]
+    ) -> BuilderType:
+        self._request_param_check(get_updates=True)
+        self._get_updates_pool_timeout = get_updates_pool_timeout
         return self
 
     def private_key(

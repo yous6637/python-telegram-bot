@@ -160,12 +160,14 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         token (:obj:`str`): Bot's unique authentication.
         base_url (:obj:`str`, optional): Telegram Bot API service URL.
         base_file_url (:obj:`str`, optional): Telegram Bot API file URL.
-        request (Tuple[:class:`telegram.request.BaseRequest`, \
-            :class:`telegram.request.BaseRequest`, optional): Pre initialized
-            :class:`telegram.request.BaseRequest` instances. The first instance will be used
-            exclusively for :attr:`get_updates` and the second instance for all other methods.
-            If not passed, an implementation of :class:`telegram.request.BaseRequest` based on the
-            library `httpx <https://www.python-httpx.org>`_ will be used.
+        request (:class:`telegram.request.BaseRequest`, optional): Pre initialized
+            :class:`telegram.request.BaseRequest` instances. Will be used for all bot methods
+            *except* for :attr:`get_updates`. If not passed, an instance of
+            :class:`telegram.request.HTTPXRequest` will be used.
+        request (:class:`telegram.request.BaseRequest`, optional): Pre initialized
+            :class:`telegram.request.BaseRequest` instances. Will be used exclusively for
+            :attr:`get_updates`. If not passed, an instance of
+            :class:`telegram.request.HTTPXRequest` will be used.
         private_key (:obj:`bytes`, optional): Private key for decryption of telegram passport data.
         private_key_password (:obj:`bytes`, optional): Password for above private key.
 
@@ -187,7 +189,8 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         token: str,
         base_url: str = 'https://api.telegram.org/bot',
         base_file_url: str = 'https://api.telegram.org/file/bot',
-        request: Tuple[BaseRequest, BaseRequest] = None,
+        request: BaseRequest = None,
+        get_updates_request: BaseRequest = None,
         private_key: bytes = None,
         private_key_password: bytes = None,
     ):
@@ -200,7 +203,10 @@ class Bot(TelegramObject, AbstractAsyncContextManager):
         self._logger = logging.getLogger(__name__)
         self._initialized = False
 
-        self._request = (HTTPXRequest(), HTTPXRequest()) if request is None else request
+        self._request: Tuple[BaseRequest, BaseRequest] = (
+            HTTPXRequest() if get_updates_request is None else get_updates_request,
+            HTTPXRequest() if request is None else request,
+        )
 
         if private_key:
             if not CRYPTO_INSTALLED:

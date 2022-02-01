@@ -96,7 +96,8 @@ class ExtBot(Bot):
         token: str,
         base_url: str = 'https://api.telegram.org/bot',
         base_file_url: str = 'https://api.telegram.org/file/bot',
-        request: Tuple[BaseRequest, BaseRequest] = None,
+        request: BaseRequest = None,
+        get_updates_request: BaseRequest = None,
         private_key: bytes = None,
         private_key_password: bytes = None,
         defaults: 'Defaults' = None,
@@ -107,6 +108,7 @@ class ExtBot(Bot):
             base_url=base_url,
             base_file_url=base_file_url,
             request=request,
+            get_updates_request=get_updates_request,
             private_key=private_key,
             private_key_password=private_key_password,
         )

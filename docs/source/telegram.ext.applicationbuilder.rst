@@ -1,7 +1,7 @@
-:github_url: https://github.com/python-telegram-bot/python-telegram-bot/blob/master/telegram/ext/builders.py
+:github_url: https://github.com/python-telegram-bot/python-telegram-bot/blob/master/telegram/ext/_builders.py
 
-telegram.ext.DispatcherBuilder
-==============================
+telegram.ext.ApplicationBuilder
+===============================
 
-.. autoclass:: telegram.ext.DispatcherBuilder
+.. autoclass:: telegram.ext.ApplicationBuilder
     :members:

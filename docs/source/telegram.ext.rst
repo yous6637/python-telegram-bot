@@ -7,7 +7,6 @@ telegram.ext package
     telegram.ext.applicationbuilder
     telegram.ext.application
     telegram.ext.applicationhandlerstop
-    telegram.ext.updaterbuilder
     telegram.ext.updater
     telegram.ext.callbackcontext
     telegram.ext.job

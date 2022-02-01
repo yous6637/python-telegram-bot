@@ -6,3 +6,4 @@ telegram.request Module
 .. toctree::
     telegram.request.baserequest
     telegram.request.requestdata
+    telegram.request.httpxrequest
