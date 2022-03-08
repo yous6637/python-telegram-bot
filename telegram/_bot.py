@@ -399,7 +399,7 @@ class Bot(TelegramObject):
         """
         result = self._post('getMe', timeout=timeout, api_kwargs=api_kwargs)
 
-        self._bot_user = User.de_json(result, self)  # type: ignore[return-value, arg-type]
+        self._bot_user = User.de_json(result, self)  # type: ignore[arg-type]
 
         return self._bot_user  # type: ignore[return-value]
 
@@ -2338,7 +2338,7 @@ class Bot(TelegramObject):
 
         result = self._post('getUserProfilePhotos', data, timeout=timeout, api_kwargs=api_kwargs)
 
-        return UserProfilePhotos.de_json(result, self)  # type: ignore[return-value, arg-type]
+        return UserProfilePhotos.de_json(result, self)  # type: ignore[arg-type]
 
     @_log
     def get_file(

@@ -72,7 +72,7 @@ class _StringEnum(str, Enum):
     stringification.
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__}.{self.name}>'
@@ -85,14 +85,14 @@ BOT_API_VERSION = '5.7'
 SUPPORTED_WEBHOOK_PORTS: List[int] = [443, 80, 88, 8443]
 
 
-class BotCommandScopeType(_StringEnum):
+class BotCommandScopeType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.BotCommandScope`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     DEFAULT = 'default'
     """:obj:`str`: The type of :class:`telegram.BotCommandScopeDefault`."""
@@ -118,21 +118,21 @@ class CallbackQueryLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     ANSWER_CALLBACK_QUERY_TEXT_LENGTH = 200
     """:obj:`int`: Maximum number of characters for the ``text`` parameter of
     :meth:`telegram.Bot.answer_callback_query`."""
 
 
-class ChatAction(_StringEnum):
+class ChatAction(_StringEnum):  # type: ignore[misc]
     """This enum contains the available chat actions for :meth:`telegram.Bot.send_chat_action`.
     The enum members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     CHOOSE_STICKER = 'choose_sticker'
     """:obj:`str`: Chat action indicating that the bot is selecting a sticker."""
@@ -165,7 +165,7 @@ class ChatID(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     ANONYMOUS_ADMIN = 1087968824
     """:obj:`int`: User ID in groups for messages sent by anonymous admins.
@@ -200,7 +200,7 @@ class ChatInviteLinkLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     MEMBER_LIMIT = 99999
     """:obj:`int`: Maximum value allowed for the ``member_limit`` parameter of
@@ -210,14 +210,14 @@ class ChatInviteLinkLimit(IntEnum):
     :meth:`telegram.Bot.create_chat_invite_link` and :meth:`telegram.Bot.edit_chat_invite_link`."""
 
 
-class ChatMemberStatus(_StringEnum):
+class ChatMemberStatus(_StringEnum):  # type: ignore[misc]
     """This enum contains the available states for :class:`telegram.ChatMember`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     ADMINISTRATOR = 'administrator'
     """:obj:`str`: A :class:`telegram.ChatMember` who is administrator of the chat."""
@@ -233,14 +233,14 @@ class ChatMemberStatus(_StringEnum):
     """:obj:`str`: A :class:`telegram.ChatMember` who was restricted in this chat."""
 
 
-class ChatType(_StringEnum):
+class ChatType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.Chat`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     SENDER = 'sender'
     """:obj:`str`: A :class:`telegram.Chat` that represents the chat of a :class:`telegram.User`
@@ -255,7 +255,7 @@ class ChatType(_StringEnum):
     """:obj:`str`: A :class:`telegram.Chat` that is a channel."""
 
 
-class DiceEmoji(_StringEnum):
+class DiceEmoji(_StringEnum):  # type: ignore[misc]
     """This enum contains the available emoji for :class:`telegram.Dice`/
     :meth:`telegram.Bot.send_dice`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
@@ -263,7 +263,7 @@ class DiceEmoji(_StringEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     DICE = '🎲'
     """:obj:`str`: A :class:`telegram.Dice` with the emoji ``🎲``."""
@@ -286,7 +286,7 @@ class FileSizeLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     FILESIZE_DOWNLOAD = int(20e6)  # (20MB)
     """:obj:`int`: Bots can download files of up to 20MB in size."""
@@ -303,7 +303,7 @@ class FloodLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     MESSAGES_PER_SECOND_PER_CHAT = 1
     """:obj:`int`: The number of messages that can be sent per second in a particular chat.
@@ -328,7 +328,7 @@ class InlineKeyboardMarkupLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     TOTAL_BUTTON_NUMBER = 100
     """:obj:`int`: Maximum number of buttons that can be attached to a message.
@@ -344,14 +344,14 @@ class InlineKeyboardMarkupLimit(IntEnum):
     """
 
 
-class InputMediaType(_StringEnum):
+class InputMediaType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.InputMedia`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     ANIMATION = 'animation'
     """:obj:`str`: Type of :class:`telegram.InputMediaAnimation`."""
@@ -373,7 +373,7 @@ class InlineQueryLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     RESULTS = 50
     """:obj:`int`: Maximum number of results that can be passed to
@@ -383,14 +383,14 @@ class InlineQueryLimit(IntEnum):
     :meth:`telegram.Bot.answer_inline_query`."""
 
 
-class InlineQueryResultType(_StringEnum):
+class InlineQueryResultType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.InlineQueryResult`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     AUDIO = 'audio'
     """:obj:`str`: Type of :class:`telegram.InlineQueryResultAudio` and
@@ -442,7 +442,7 @@ class LocationLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     HORIZONTAL_ACCURACY = 1500
     """:obj:`int`: Maximum radius of uncertainty for the location, measured in meters."""
@@ -457,14 +457,14 @@ class LocationLimit(IntEnum):
     """
 
 
-class MaskPosition(_StringEnum):
+class MaskPosition(_StringEnum):  # type: ignore[misc]
     """This enum contains the available positions for :class:`telegram.MaskPosition`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     FOREHEAD = 'forehead'
     """:obj:`str`: Mask position for a sticker on the forehead."""
@@ -476,7 +476,7 @@ class MaskPosition(_StringEnum):
     """:obj:`str`: Mask position for a sticker on the chin."""
 
 
-class MessageAttachmentType(_StringEnum):
+class MessageAttachmentType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.Message` that can bee seens
     as attachment. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
@@ -484,7 +484,7 @@ class MessageAttachmentType(_StringEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     # Make sure that all constants here are also listed in the MessageType Enum!
     # (Enums are not extendable)
@@ -525,14 +525,14 @@ class MessageAttachmentType(_StringEnum):
     """:obj:`str`: Messages with :attr:`telegram.Message.venue`."""
 
 
-class MessageEntityType(_StringEnum):
+class MessageEntityType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.MessageEntity`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     MENTION = 'mention'
     """:obj:`str`: Message entities representing a mention."""
@@ -576,7 +576,7 @@ class MessageLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     TEXT_LENGTH = 4096
     """:obj:`int`: Maximum number of characters for a text message."""
@@ -592,7 +592,7 @@ class MessageLimit(IntEnum):
     """
 
 
-class MessageType(_StringEnum):
+class MessageType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.Message` that can be seen
     as attachment. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
@@ -600,7 +600,7 @@ class MessageType(_StringEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     # Make sure that all attachment type constants are also listed in the
     # MessageAttachmentType Enum! (Enums are not extendable)
@@ -679,14 +679,14 @@ class MessageType(_StringEnum):
     """:obj:`str`: Messages with :attr:`telegram.Message.voice_chat_participants_invited`."""
 
 
-class ParseMode(_StringEnum):
+class ParseMode(_StringEnum):  # type: ignore[misc]
     """This enum contains the available parse modes. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     MARKDOWN = 'Markdown'
     """:obj:`str`: Markdown parse mode.
@@ -709,7 +709,7 @@ class PollLimit(IntEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     QUESTION_LENGTH = 300
     """:obj:`str`: Maximum number of characters of the polls question."""
@@ -719,7 +719,7 @@ class PollLimit(IntEnum):
     """:obj:`str`: Maximum number of available options for the poll."""
 
 
-class PollType(_StringEnum):
+class PollType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types for :class:`telegram.Poll`/
     :meth:`telegram.Bot.send_poll`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
@@ -727,7 +727,7 @@ class PollType(_StringEnum):
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     REGULAR = 'regular'
     """:obj:`str`: regular polls."""
@@ -735,14 +735,14 @@ class PollType(_StringEnum):
     """:obj:`str`: quiz polls."""
 
 
-class UpdateType(_StringEnum):
+class UpdateType(_StringEnum):  # type: ignore[misc]
     """This enum contains the available types of :class:`telegram.Update`. The enum
     members of this enumeration are instances of :class:`str` and can be treated as such.
 
     .. versionadded:: 14.0
     """
 
-    __slots__ = ()
+    __slots__ = ()  # type: ignore[misc]
 
     MESSAGE = 'message'
     """:obj:`str`: Updates with :attr:`telegram.Update.message`."""

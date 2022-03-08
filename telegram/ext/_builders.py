@@ -228,7 +228,7 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
         job_queue = DefaultValue.get_value(self._job_queue)
         dispatcher: Dispatcher[
             BT, CCT, UD, CD, BD, JQ, PT
-        ] = DefaultValue.get_value(  # type: ignore[call-arg]  # pylint: disable=not-callable
+        ] = DefaultValue.get_value(  # pylint: disable=not-callable
             self._dispatcher_class
         )(
             bot=self._bot if self._bot is not DEFAULT_NONE else self._build_ext_bot(),
@@ -275,7 +275,7 @@ class _BaseBuilder(Generic[ODT, BT, CCT, UD, CD, BD, JQ, PT]):
             exception_event = DefaultValue.get_value(self._exception_event)
             bot = self._bot or self._build_ext_bot()
 
-        return self._updater_class(  # type: ignore[call-arg]
+        return self._updater_class(
             dispatcher=self._dispatcher,
             bot=bot,
             update_queue=DefaultValue.get_value(self._update_queue),
