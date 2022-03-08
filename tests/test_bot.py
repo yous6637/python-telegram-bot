@@ -16,7 +16,6 @@
 #
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
-import datetime
 import inspect
 import logging
 import time
@@ -1864,7 +1863,7 @@ class TestBot:
         )
         assert invite_link.invite_link != ''
         assert not invite_link.invite_link.endswith('...')
-        assert pytest.approx(invite_link.expire_date == aware_time_in_future)
+        assert invite_link.expire_date - aware_time_in_future < dtm.timedelta(seconds=1)
         assert invite_link.member_limit == 10
 
         add_seconds = dtm.timedelta(0, 80)
@@ -1880,7 +1879,7 @@ class TestBot:
             name='NewName',
         )
         assert edited_invite_link.invite_link == invite_link.invite_link
-        assert pytest.approx(edited_invite_link.expire_date == aware_time_in_future)
+        assert edited_invite_link.expire_date - aware_time_in_future < dtm.timedelta(seconds=1)
         assert edited_invite_link.name == 'NewName'
         assert edited_invite_link.member_limit == 20
 
@@ -1891,14 +1890,14 @@ class TestBot:
             creates_join_request=True,
         )
         assert edited_invite_link.invite_link == invite_link.invite_link
-        assert pytest.approx(edited_invite_link.expire_date == aware_time_in_future)
+        assert not edited_invite_link.expire_date
         assert edited_invite_link.name == 'EvenNewerName'
-        assert edited_invite_link.creates_join_request is True
+        assert edited_invite_link.creates_join_request
         assert edited_invite_link.member_limit is None
 
         revoked_invite_link = bot.revoke_chat_invite_link(channel_id, invite_link.invite_link)
         assert revoked_invite_link.invite_link == invite_link.invite_link
-        assert revoked_invite_link.is_revoked is True
+        assert revoked_invite_link.is_revoked
 
     @flaky(3, 1)
     def test_advanced_chat_invite_links_default_tzinfo(self, tz_bot, channel_id):
@@ -1912,7 +1911,7 @@ class TestBot:
         )
         assert invite_link.invite_link != ''
         assert not invite_link.invite_link.endswith('...')
-        assert pytest.approx(invite_link.expire_date == aware_expire_date)
+        assert invite_link.expire_date - aware_expire_date < dtm.timedelta(seconds=1)
         assert invite_link.member_limit == 10
 
         add_seconds = dtm.timedelta(0, 80)
@@ -1927,7 +1926,7 @@ class TestBot:
             name='NewName',
         )
         assert edited_invite_link.invite_link == invite_link.invite_link
-        assert pytest.approx(edited_invite_link.expire_date == aware_expire_date)
+        assert edited_invite_link.expire_date - aware_expire_date < dtm.timedelta(seconds=1)
         assert edited_invite_link.name == 'NewName'
         assert edited_invite_link.member_limit == 20
 
@@ -1938,14 +1937,14 @@ class TestBot:
             creates_join_request=True,
         )
         assert edited_invite_link.invite_link == invite_link.invite_link
-        assert pytest.approx(edited_invite_link.expire_date == aware_expire_date)
+        assert not edited_invite_link.expire_date
         assert edited_invite_link.name == 'EvenNewerName'
-        assert edited_invite_link.creates_join_request is True
+        assert edited_invite_link.creates_join_request
         assert edited_invite_link.member_limit is None
 
         revoked_invite_link = tz_bot.revoke_chat_invite_link(channel_id, invite_link.invite_link)
         assert revoked_invite_link.invite_link == invite_link.invite_link
-        assert revoked_invite_link.is_revoked is True
+        assert revoked_invite_link.is_revoked
 
     @flaky(3, 1)
     def test_approve_chat_join_request(self, bot, chat_id, channel_id):
